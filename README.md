@@ -223,7 +223,7 @@ We welcome contributions from the community! Please read our contributing guidel
 ## 📧 Contact
 
 For questions, partnerships, or support:
-- **Email:** [contact@agrovolt.ai]
+- **Email:** [sagar23swain@gmail.com]
 - **Website:** [www.agrovolt.ai]
 - **Twitter:** [@AgroVoltAI]
 
