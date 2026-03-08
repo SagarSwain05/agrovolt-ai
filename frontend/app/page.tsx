@@ -8,7 +8,9 @@ export default function Home() {
   const [backendData, setBackendData] = useState<any>(null);
 
   useEffect(() => {
-    fetch('http://localhost:5001/')
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+    const backendRoot = apiBase.replace('/api', '');
+    fetch(backendRoot + '/')
       .then(res => res.json())
       .then(data => {
         setBackendStatus('✅ Connected');
