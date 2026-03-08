@@ -36,3 +36,5 @@ env/
 dist/
 build/
 *.egg-info/
+.next/
+uploads/

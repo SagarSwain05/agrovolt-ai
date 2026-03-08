@@ -1,0 +1,412 @@
+[
+    {
+        "state": "Odisha",
+        "district": "Khordha",
+        "crop": "Rice",
+        "season": "kharif",
+        "years": [
+            {
+                "year": 2016,
+                "yield_kg_ha": 2450,
+                "area_ha": 12000,
+                "rainfall_mm": 1350
+            },
+            {
+                "year": 2017,
+                "yield_kg_ha": 2380,
+                "area_ha": 11800,
+                "rainfall_mm": 1280
+            },
+            {
+                "year": 2018,
+                "yield_kg_ha": 2520,
+                "area_ha": 12200,
+                "rainfall_mm": 1420
+            },
+            {
+                "year": 2019,
+                "yield_kg_ha": 2180,
+                "area_ha": 11500,
+                "rainfall_mm": 980
+            },
+            {
+                "year": 2020,
+                "yield_kg_ha": 2600,
+                "area_ha": 12500,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2021,
+                "yield_kg_ha": 2550,
+                "area_ha": 12300,
+                "rainfall_mm": 1320
+            },
+            {
+                "year": 2022,
+                "yield_kg_ha": 2700,
+                "area_ha": 12800,
+                "rainfall_mm": 1450
+            },
+            {
+                "year": 2023,
+                "yield_kg_ha": 2650,
+                "area_ha": 12600,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2024,
+                "yield_kg_ha": 2720,
+                "area_ha": 13000,
+                "rainfall_mm": 1400
+            },
+            {
+                "year": 2025,
+                "yield_kg_ha": 2780,
+                "area_ha": 13200,
+                "rainfall_mm": 1350
+            }
+        ]
+    },
+    {
+        "state": "Odisha",
+        "district": "Khordha",
+        "crop": "Tomato",
+        "season": "rabi",
+        "years": [
+            {
+                "year": 2016,
+                "yield_kg_ha": 18500,
+                "area_ha": 800,
+                "rainfall_mm": 120
+            },
+            {
+                "year": 2017,
+                "yield_kg_ha": 19200,
+                "area_ha": 850,
+                "rainfall_mm": 110
+            },
+            {
+                "year": 2018,
+                "yield_kg_ha": 17800,
+                "area_ha": 780,
+                "rainfall_mm": 140
+            },
+            {
+                "year": 2019,
+                "yield_kg_ha": 20100,
+                "area_ha": 900,
+                "rainfall_mm": 100
+            },
+            {
+                "year": 2020,
+                "yield_kg_ha": 21500,
+                "area_ha": 950,
+                "rainfall_mm": 95
+            },
+            {
+                "year": 2021,
+                "yield_kg_ha": 22000,
+                "area_ha": 980,
+                "rainfall_mm": 105
+            },
+            {
+                "year": 2022,
+                "yield_kg_ha": 23500,
+                "area_ha": 1050,
+                "rainfall_mm": 90
+            },
+            {
+                "year": 2023,
+                "yield_kg_ha": 24000,
+                "area_ha": 1100,
+                "rainfall_mm": 88
+            },
+            {
+                "year": 2024,
+                "yield_kg_ha": 24800,
+                "area_ha": 1150,
+                "rainfall_mm": 92
+            },
+            {
+                "year": 2025,
+                "yield_kg_ha": 25200,
+                "area_ha": 1200,
+                "rainfall_mm": 85
+            }
+        ]
+    },
+    {
+        "state": "Odisha",
+        "district": "Khordha",
+        "crop": "Turmeric",
+        "season": "kharif",
+        "years": [
+            {
+                "year": 2016,
+                "yield_kg_ha": 5200,
+                "area_ha": 450,
+                "rainfall_mm": 1350
+            },
+            {
+                "year": 2017,
+                "yield_kg_ha": 5400,
+                "area_ha": 480,
+                "rainfall_mm": 1280
+            },
+            {
+                "year": 2018,
+                "yield_kg_ha": 5600,
+                "area_ha": 500,
+                "rainfall_mm": 1420
+            },
+            {
+                "year": 2019,
+                "yield_kg_ha": 5100,
+                "area_ha": 420,
+                "rainfall_mm": 980
+            },
+            {
+                "year": 2020,
+                "yield_kg_ha": 5800,
+                "area_ha": 520,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2021,
+                "yield_kg_ha": 6000,
+                "area_ha": 550,
+                "rainfall_mm": 1320
+            },
+            {
+                "year": 2022,
+                "yield_kg_ha": 6200,
+                "area_ha": 580,
+                "rainfall_mm": 1450
+            },
+            {
+                "year": 2023,
+                "yield_kg_ha": 6400,
+                "area_ha": 600,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2024,
+                "yield_kg_ha": 6500,
+                "area_ha": 620,
+                "rainfall_mm": 1400
+            },
+            {
+                "year": 2025,
+                "yield_kg_ha": 6600,
+                "area_ha": 650,
+                "rainfall_mm": 1350
+            }
+        ]
+    },
+    {
+        "state": "Odisha",
+        "district": "Khordha",
+        "crop": "Ginger",
+        "season": "kharif",
+        "years": [
+            {
+                "year": 2016,
+                "yield_kg_ha": 12000,
+                "area_ha": 200,
+                "rainfall_mm": 1350
+            },
+            {
+                "year": 2017,
+                "yield_kg_ha": 12500,
+                "area_ha": 220,
+                "rainfall_mm": 1280
+            },
+            {
+                "year": 2018,
+                "yield_kg_ha": 13000,
+                "area_ha": 250,
+                "rainfall_mm": 1420
+            },
+            {
+                "year": 2019,
+                "yield_kg_ha": 11500,
+                "area_ha": 180,
+                "rainfall_mm": 980
+            },
+            {
+                "year": 2020,
+                "yield_kg_ha": 13500,
+                "area_ha": 260,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2021,
+                "yield_kg_ha": 14000,
+                "area_ha": 280,
+                "rainfall_mm": 1320
+            },
+            {
+                "year": 2022,
+                "yield_kg_ha": 14500,
+                "area_ha": 300,
+                "rainfall_mm": 1450
+            },
+            {
+                "year": 2023,
+                "yield_kg_ha": 15000,
+                "area_ha": 320,
+                "rainfall_mm": 1380
+            },
+            {
+                "year": 2024,
+                "yield_kg_ha": 15500,
+                "area_ha": 340,
+                "rainfall_mm": 1400
+            },
+            {
+                "year": 2025,
+                "yield_kg_ha": 15800,
+                "area_ha": 350,
+                "rainfall_mm": 1350
+            }
+        ]
+    },
+    {
+        "state": "Odisha",
+        "district": "Khordha",
+        "crop": "Spinach",
+        "season": "rabi",
+        "years": [
+            {
+                "year": 2020,
+                "yield_kg_ha": 8000,
+                "area_ha": 150,
+                "rainfall_mm": 95
+            },
+            {
+                "year": 2021,
+                "yield_kg_ha": 8500,
+                "area_ha": 180,
+                "rainfall_mm": 105
+            },
+            {
+                "year": 2022,
+                "yield_kg_ha": 9200,
+                "area_ha": 200,
+                "rainfall_mm": 90
+            },
+            {
+                "year": 2023,
+                "yield_kg_ha": 9800,
+                "area_ha": 220,
+                "rainfall_mm": 88
+            },
+            {
+                "year": 2024,
+                "yield_kg_ha": 10200,
+                "area_ha": 250,
+                "rainfall_mm": 92
+            },
+            {
+                "year": 2025,
+                "yield_kg_ha": 10500,
+                "area_ha": 270,
+                "rainfall_mm": 85
+            }
+        ]
+    },
+    {
+        "crop_properties": {
+            "Rice": {
+                "shade_tolerance": 0.3,
+                "water_need": "high",
+                "min_rainfall_mm": 800,
+                "market_price_per_kg": 22,
+                "growth_days": 150
+            },
+            "Tomato": {
+                "shade_tolerance": 0.5,
+                "water_need": "medium",
+                "min_rainfall_mm": 400,
+                "market_price_per_kg": 35,
+                "growth_days": 90
+            },
+            "Turmeric": {
+                "shade_tolerance": 0.75,
+                "water_need": "medium",
+                "min_rainfall_mm": 600,
+                "market_price_per_kg": 85,
+                "growth_days": 240
+            },
+            "Ginger": {
+                "shade_tolerance": 0.85,
+                "water_need": "low",
+                "min_rainfall_mm": 500,
+                "market_price_per_kg": 120,
+                "growth_days": 210
+            },
+            "Spinach": {
+                "shade_tolerance": 0.7,
+                "water_need": "medium",
+                "min_rainfall_mm": 300,
+                "market_price_per_kg": 40,
+                "growth_days": 45
+            },
+            "Millet": {
+                "shade_tolerance": 0.2,
+                "water_need": "low",
+                "min_rainfall_mm": 300,
+                "market_price_per_kg": 28,
+                "growth_days": 120
+            },
+            "Groundnut": {
+                "shade_tolerance": 0.35,
+                "water_need": "medium",
+                "min_rainfall_mm": 500,
+                "market_price_per_kg": 55,
+                "growth_days": 130
+            },
+            "Soybean": {
+                "shade_tolerance": 0.4,
+                "water_need": "medium",
+                "min_rainfall_mm": 600,
+                "market_price_per_kg": 45,
+                "growth_days": 110
+            },
+            "Wheat": {
+                "shade_tolerance": 0.25,
+                "water_need": "medium",
+                "min_rainfall_mm": 400,
+                "market_price_per_kg": 25,
+                "growth_days": 140
+            }
+        },
+        "soil_modifiers": {
+            "loamy": {
+                "fertility": 1.0,
+                "drainage": 0.85,
+                "water_retention": 0.75
+            },
+            "sandy": {
+                "fertility": 0.6,
+                "drainage": 1.0,
+                "water_retention": 0.3
+            },
+            "clayey": {
+                "fertility": 0.85,
+                "drainage": 0.4,
+                "water_retention": 1.0
+            },
+            "red": {
+                "fertility": 0.7,
+                "drainage": 0.75,
+                "water_retention": 0.55
+            },
+            "black": {
+                "fertility": 0.9,
+                "drainage": 0.5,
+                "water_retention": 0.9
+            }
+        }
+    }
+]

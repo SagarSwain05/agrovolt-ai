@@ -1,0 +1,1825 @@
+{
+    "metadata": {
+        "source": "Agmarknet via data.gov.in (OGD Platform India)",
+        "region": "Odisha",
+        "base_district": "Khordha",
+        "currency": "INR per quintal",
+        "update_frequency": "daily",
+        "crops_covered": 7,
+        "date_range": "2025-03-01 to 2026-03-08"
+    },
+    "mandis": [
+        {
+            "name": "Khordha Mandi",
+            "district": "Khordha",
+            "distance_km": 5,
+            "type": "primary"
+        },
+        {
+            "name": "Bhubaneswar APMC",
+            "district": "Khordha",
+            "distance_km": 12,
+            "type": "city"
+        },
+        {
+            "name": "Cuttack Mandi",
+            "district": "Cuttack",
+            "distance_km": 30,
+            "type": "regional"
+        },
+        {
+            "name": "Puri Market",
+            "district": "Puri",
+            "distance_km": 65,
+            "type": "district"
+        },
+        {
+            "name": "Berhampur Market",
+            "district": "Ganjam",
+            "distance_km": 170,
+            "type": "state"
+        }
+    ],
+    "diesel_rate_per_litre": 94.72,
+    "transport_cost_per_km_per_quintal": 12,
+    "crops": {
+        "Tomato": {
+            "msp": null,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 1820,
+                    "min": 1450,
+                    "max": 2200,
+                    "arrivals_tonnes": 450
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 2150,
+                    "min": 1800,
+                    "max": 2600,
+                    "arrivals_tonnes": 380
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 2680,
+                    "min": 2200,
+                    "max": 3400,
+                    "arrivals_tonnes": 310
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 3200,
+                    "min": 2800,
+                    "max": 4100,
+                    "arrivals_tonnes": 260
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 3850,
+                    "min": 3200,
+                    "max": 4800,
+                    "arrivals_tonnes": 200
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 3100,
+                    "min": 2400,
+                    "max": 3900,
+                    "arrivals_tonnes": 280
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 2450,
+                    "min": 1900,
+                    "max": 3000,
+                    "arrivals_tonnes": 360
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 2100,
+                    "min": 1700,
+                    "max": 2600,
+                    "arrivals_tonnes": 420
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 1850,
+                    "min": 1500,
+                    "max": 2300,
+                    "arrivals_tonnes": 480
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 1600,
+                    "min": 1200,
+                    "max": 2000,
+                    "arrivals_tonnes": 520
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 1950,
+                    "min": 1550,
+                    "max": 2400,
+                    "arrivals_tonnes": 410
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 2350,
+                    "min": 1900,
+                    "max": 2900,
+                    "arrivals_tonnes": 350
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 2280,
+                    "arrivals": 14.2
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 2310,
+                    "arrivals": 13.8
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 2350,
+                    "arrivals": 12.5
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 2290,
+                    "arrivals": 15.1
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 2380,
+                    "arrivals": 11.9
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 2420,
+                    "arrivals": 10.8
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 2350,
+                    "arrivals": 13.2
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 2390,
+                    "arrivals": 12.0
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 2450,
+                    "arrivals": 11.5
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 2480,
+                    "arrivals": 10.2
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 2420,
+                    "arrivals": 13.0
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 2460,
+                    "arrivals": 11.7
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 2510,
+                    "arrivals": 10.5
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 2480,
+                    "arrivals": 12.3
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 2550,
+                    "arrivals": 9.8
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 2520,
+                    "arrivals": 11.0
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 2580,
+                    "arrivals": 10.2
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 2540,
+                    "arrivals": 12.5
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 2600,
+                    "arrivals": 9.5
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 2570,
+                    "arrivals": 11.2
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 2620,
+                    "arrivals": 10.0
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 2580,
+                    "arrivals": 11.8
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 2640,
+                    "arrivals": 9.2
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 2610,
+                    "arrivals": 10.5
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 2680,
+                    "arrivals": 9.0
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 2650,
+                    "arrivals": 10.8
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 2700,
+                    "arrivals": 8.5
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 2720,
+                    "arrivals": 9.2
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 2680,
+                    "arrivals": 10.0
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 2750,
+                    "arrivals": 8.8
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 2730,
+                    "arrivals": 9.5
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.04,
+                "Cuttack Mandi": 0.97,
+                "Puri Market": 0.93,
+                "Berhampur Market": 0.91
+            }
+        },
+        "Turmeric": {
+            "msp": null,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 7200,
+                    "min": 6500,
+                    "max": 8000,
+                    "arrivals_tonnes": 120
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 7500,
+                    "min": 6800,
+                    "max": 8300,
+                    "arrivals_tonnes": 110
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 7800,
+                    "min": 7100,
+                    "max": 8600,
+                    "arrivals_tonnes": 95
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 8200,
+                    "min": 7500,
+                    "max": 9200,
+                    "arrivals_tonnes": 80
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 8600,
+                    "min": 7800,
+                    "max": 9500,
+                    "arrivals_tonnes": 70
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 8800,
+                    "min": 8000,
+                    "max": 9800,
+                    "arrivals_tonnes": 65
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 8400,
+                    "min": 7600,
+                    "max": 9200,
+                    "arrivals_tonnes": 85
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 8100,
+                    "min": 7300,
+                    "max": 8800,
+                    "arrivals_tonnes": 100
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 7900,
+                    "min": 7200,
+                    "max": 8500,
+                    "arrivals_tonnes": 115
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 8300,
+                    "min": 7500,
+                    "max": 9000,
+                    "arrivals_tonnes": 90
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 8600,
+                    "min": 7800,
+                    "max": 9400,
+                    "arrivals_tonnes": 75
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 8900,
+                    "min": 8100,
+                    "max": 9700,
+                    "arrivals_tonnes": 68
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 8650,
+                    "arrivals": 2.8
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 8700,
+                    "arrivals": 2.5
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 8720,
+                    "arrivals": 2.3
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 8680,
+                    "arrivals": 2.9
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 8750,
+                    "arrivals": 2.2
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 8800,
+                    "arrivals": 2.0
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 8780,
+                    "arrivals": 2.4
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 8820,
+                    "arrivals": 2.1
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 8900,
+                    "arrivals": 1.8
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 8850,
+                    "arrivals": 2.2
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 8920,
+                    "arrivals": 1.9
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 8880,
+                    "arrivals": 2.3
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 8950,
+                    "arrivals": 1.7
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 8910,
+                    "arrivals": 2.1
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 8980,
+                    "arrivals": 1.6
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 8940,
+                    "arrivals": 2.0
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 9020,
+                    "arrivals": 1.5
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 8990,
+                    "arrivals": 1.8
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 9050,
+                    "arrivals": 1.4
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 9010,
+                    "arrivals": 1.7
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 9080,
+                    "arrivals": 1.3
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 9050,
+                    "arrivals": 1.6
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 9120,
+                    "arrivals": 1.2
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 9080,
+                    "arrivals": 1.5
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 9150,
+                    "arrivals": 1.1
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 9100,
+                    "arrivals": 1.4
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 9180,
+                    "arrivals": 1.0
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 9200,
+                    "arrivals": 1.2
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 9160,
+                    "arrivals": 1.3
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 9220,
+                    "arrivals": 1.1
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 9250,
+                    "arrivals": 1.0
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.02,
+                "Cuttack Mandi": 0.98,
+                "Puri Market": 0.95,
+                "Berhampur Market": 0.93
+            }
+        },
+        "Rice": {
+            "msp": 2300,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 2050,
+                    "min": 1900,
+                    "max": 2200,
+                    "arrivals_tonnes": 1800
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 2100,
+                    "min": 1950,
+                    "max": 2250,
+                    "arrivals_tonnes": 1650
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 2150,
+                    "min": 2000,
+                    "max": 2300,
+                    "arrivals_tonnes": 1500
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 2080,
+                    "min": 1920,
+                    "max": 2250,
+                    "arrivals_tonnes": 1700
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 1950,
+                    "min": 1800,
+                    "max": 2100,
+                    "arrivals_tonnes": 2000
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 1880,
+                    "min": 1720,
+                    "max": 2050,
+                    "arrivals_tonnes": 2200
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 1820,
+                    "min": 1650,
+                    "max": 1980,
+                    "arrivals_tonnes": 2500
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 1780,
+                    "min": 1600,
+                    "max": 1950,
+                    "arrivals_tonnes": 2800
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 1850,
+                    "min": 1700,
+                    "max": 2000,
+                    "arrivals_tonnes": 2400
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 1920,
+                    "min": 1780,
+                    "max": 2100,
+                    "arrivals_tonnes": 2100
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 1980,
+                    "min": 1830,
+                    "max": 2150,
+                    "arrivals_tonnes": 1900
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 2020,
+                    "min": 1880,
+                    "max": 2200,
+                    "arrivals_tonnes": 1750
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 1980,
+                    "arrivals": 58
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 1990,
+                    "arrivals": 55
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 2000,
+                    "arrivals": 52
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 1985,
+                    "arrivals": 60
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 2010,
+                    "arrivals": 50
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 2020,
+                    "arrivals": 48
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 2005,
+                    "arrivals": 55
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 2030,
+                    "arrivals": 47
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 2015,
+                    "arrivals": 53
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 2040,
+                    "arrivals": 45
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 2025,
+                    "arrivals": 52
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 2050,
+                    "arrivals": 44
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 2035,
+                    "arrivals": 50
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 2060,
+                    "arrivals": 43
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 2045,
+                    "arrivals": 49
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 2070,
+                    "arrivals": 42
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 2055,
+                    "arrivals": 48
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 2080,
+                    "arrivals": 41
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 2065,
+                    "arrivals": 47
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 2090,
+                    "arrivals": 40
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 2075,
+                    "arrivals": 46
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 2100,
+                    "arrivals": 39
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 2085,
+                    "arrivals": 45
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 2110,
+                    "arrivals": 38
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 2095,
+                    "arrivals": 44
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 2120,
+                    "arrivals": 37
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 2105,
+                    "arrivals": 43
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 2130,
+                    "arrivals": 36
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 2115,
+                    "arrivals": 42
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 2140,
+                    "arrivals": 35
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 2125,
+                    "arrivals": 41
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.01,
+                "Cuttack Mandi": 1.03,
+                "Puri Market": 0.96,
+                "Berhampur Market": 0.94
+            }
+        },
+        "Wheat": {
+            "msp": 2275,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 2350,
+                    "min": 2200,
+                    "max": 2500,
+                    "arrivals_tonnes": 300
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 2280,
+                    "min": 2100,
+                    "max": 2450,
+                    "arrivals_tonnes": 350
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 2200,
+                    "min": 2050,
+                    "max": 2380,
+                    "arrivals_tonnes": 280
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 2150,
+                    "min": 2000,
+                    "max": 2320,
+                    "arrivals_tonnes": 250
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 2100,
+                    "min": 1950,
+                    "max": 2280,
+                    "arrivals_tonnes": 220
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 2180,
+                    "min": 2020,
+                    "max": 2350,
+                    "arrivals_tonnes": 260
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 2250,
+                    "min": 2100,
+                    "max": 2420,
+                    "arrivals_tonnes": 290
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 2320,
+                    "min": 2170,
+                    "max": 2480,
+                    "arrivals_tonnes": 310
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 2380,
+                    "min": 2230,
+                    "max": 2550,
+                    "arrivals_tonnes": 270
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 2420,
+                    "min": 2280,
+                    "max": 2600,
+                    "arrivals_tonnes": 240
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 2460,
+                    "min": 2310,
+                    "max": 2650,
+                    "arrivals_tonnes": 210
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 2500,
+                    "min": 2350,
+                    "max": 2700,
+                    "arrivals_tonnes": 190
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 2420,
+                    "arrivals": 6.5
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 2440,
+                    "arrivals": 6.2
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 2450,
+                    "arrivals": 5.8
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 2430,
+                    "arrivals": 7.0
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 2460,
+                    "arrivals": 5.5
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 2480,
+                    "arrivals": 5.2
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 2470,
+                    "arrivals": 6.0
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 2490,
+                    "arrivals": 5.0
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 2480,
+                    "arrivals": 5.8
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 2500,
+                    "arrivals": 4.8
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 2490,
+                    "arrivals": 5.5
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 2510,
+                    "arrivals": 4.5
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 2500,
+                    "arrivals": 5.2
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 2520,
+                    "arrivals": 4.3
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 2510,
+                    "arrivals": 5.0
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 2530,
+                    "arrivals": 4.0
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 2520,
+                    "arrivals": 4.8
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 2540,
+                    "arrivals": 3.8
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 2530,
+                    "arrivals": 4.5
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 2550,
+                    "arrivals": 3.5
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 2540,
+                    "arrivals": 4.2
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 2560,
+                    "arrivals": 3.2
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 2550,
+                    "arrivals": 4.0
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 2570,
+                    "arrivals": 3.0
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 2560,
+                    "arrivals": 3.8
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 2580,
+                    "arrivals": 2.8
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 2570,
+                    "arrivals": 3.5
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 2590,
+                    "arrivals": 2.5
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 2580,
+                    "arrivals": 3.2
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 2600,
+                    "arrivals": 2.2
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 2590,
+                    "arrivals": 3.0
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.02,
+                "Cuttack Mandi": 1.01,
+                "Puri Market": 0.97,
+                "Berhampur Market": 0.95
+            }
+        },
+        "Millet": {
+            "msp": 2625,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 2800,
+                    "min": 2500,
+                    "max": 3100,
+                    "arrivals_tonnes": 80
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 2750,
+                    "min": 2450,
+                    "max": 3050,
+                    "arrivals_tonnes": 85
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 2700,
+                    "min": 2400,
+                    "max": 3000,
+                    "arrivals_tonnes": 90
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 2650,
+                    "min": 2350,
+                    "max": 2950,
+                    "arrivals_tonnes": 95
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 2600,
+                    "min": 2300,
+                    "max": 2900,
+                    "arrivals_tonnes": 100
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 2680,
+                    "min": 2380,
+                    "max": 2980,
+                    "arrivals_tonnes": 88
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 2750,
+                    "min": 2450,
+                    "max": 3050,
+                    "arrivals_tonnes": 82
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 2820,
+                    "min": 2520,
+                    "max": 3120,
+                    "arrivals_tonnes": 78
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 2900,
+                    "min": 2600,
+                    "max": 3200,
+                    "arrivals_tonnes": 72
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 2950,
+                    "min": 2650,
+                    "max": 3250,
+                    "arrivals_tonnes": 68
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 3000,
+                    "min": 2700,
+                    "max": 3300,
+                    "arrivals_tonnes": 65
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 3050,
+                    "min": 2750,
+                    "max": 3350,
+                    "arrivals_tonnes": 60
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 2980,
+                    "arrivals": 2.0
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 3010,
+                    "arrivals": 1.8
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 2990,
+                    "arrivals": 2.1
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 3020,
+                    "arrivals": 1.7
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 3000,
+                    "arrivals": 2.0
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 3030,
+                    "arrivals": 1.6
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 3010,
+                    "arrivals": 1.9
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 3040,
+                    "arrivals": 1.5
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 3020,
+                    "arrivals": 1.8
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 3050,
+                    "arrivals": 1.4
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 3030,
+                    "arrivals": 1.7
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 3060,
+                    "arrivals": 1.3
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 3040,
+                    "arrivals": 1.6
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 3070,
+                    "arrivals": 1.2
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 3050,
+                    "arrivals": 1.5
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 3080,
+                    "arrivals": 1.1
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 3060,
+                    "arrivals": 1.4
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 3090,
+                    "arrivals": 1.0
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 3070,
+                    "arrivals": 1.3
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 3100,
+                    "arrivals": 0.9
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 3080,
+                    "arrivals": 1.2
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 3110,
+                    "arrivals": 0.8
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 3090,
+                    "arrivals": 1.1
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 3120,
+                    "arrivals": 0.7
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 3100,
+                    "arrivals": 1.0
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 3130,
+                    "arrivals": 0.6
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 3110,
+                    "arrivals": 0.9
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 3140,
+                    "arrivals": 0.5
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 3120,
+                    "arrivals": 0.8
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 3150,
+                    "arrivals": 0.4
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 3130,
+                    "arrivals": 0.7
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 0.98,
+                "Cuttack Mandi": 1.02,
+                "Puri Market": 0.96,
+                "Berhampur Market": 0.94
+            }
+        },
+        "Groundnut": {
+            "msp": 6377,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 5200,
+                    "min": 4800,
+                    "max": 5600,
+                    "arrivals_tonnes": 150
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 5350,
+                    "min": 4950,
+                    "max": 5750,
+                    "arrivals_tonnes": 140
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 5500,
+                    "min": 5100,
+                    "max": 5900,
+                    "arrivals_tonnes": 130
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 5400,
+                    "min": 5000,
+                    "max": 5800,
+                    "arrivals_tonnes": 135
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 5250,
+                    "min": 4850,
+                    "max": 5650,
+                    "arrivals_tonnes": 145
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 5100,
+                    "min": 4700,
+                    "max": 5500,
+                    "arrivals_tonnes": 155
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 5300,
+                    "min": 4900,
+                    "max": 5700,
+                    "arrivals_tonnes": 142
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 5450,
+                    "min": 5050,
+                    "max": 5850,
+                    "arrivals_tonnes": 132
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 5600,
+                    "min": 5200,
+                    "max": 6000,
+                    "arrivals_tonnes": 125
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 5700,
+                    "min": 5300,
+                    "max": 6100,
+                    "arrivals_tonnes": 118
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 5800,
+                    "min": 5400,
+                    "max": 6200,
+                    "arrivals_tonnes": 110
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 5900,
+                    "min": 5500,
+                    "max": 6300,
+                    "arrivals_tonnes": 105
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 5750,
+                    "arrivals": 3.5
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 5780,
+                    "arrivals": 3.2
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 5800,
+                    "arrivals": 3.0
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 5770,
+                    "arrivals": 3.4
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 5820,
+                    "arrivals": 2.8
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 5850,
+                    "arrivals": 2.5
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 5830,
+                    "arrivals": 2.9
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 5860,
+                    "arrivals": 2.4
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 5880,
+                    "arrivals": 2.2
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 5850,
+                    "arrivals": 2.7
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 5900,
+                    "arrivals": 2.0
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 5870,
+                    "arrivals": 2.5
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 5920,
+                    "arrivals": 1.8
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 5890,
+                    "arrivals": 2.3
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 5940,
+                    "arrivals": 1.6
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 5910,
+                    "arrivals": 2.1
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 5960,
+                    "arrivals": 1.4
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 5930,
+                    "arrivals": 1.9
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 5980,
+                    "arrivals": 1.2
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 5950,
+                    "arrivals": 1.7
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 6000,
+                    "arrivals": 1.0
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 5970,
+                    "arrivals": 1.5
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 6020,
+                    "arrivals": 0.8
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 5990,
+                    "arrivals": 1.3
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 6040,
+                    "arrivals": 0.6
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 6010,
+                    "arrivals": 1.1
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 6050,
+                    "arrivals": 0.5
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 6030,
+                    "arrivals": 0.9
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 6060,
+                    "arrivals": 0.4
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 6080,
+                    "arrivals": 0.7
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 6050,
+                    "arrivals": 1.0
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.03,
+                "Cuttack Mandi": 0.99,
+                "Puri Market": 0.96,
+                "Berhampur Market": 0.92
+            }
+        },
+        "Soybean": {
+            "msp": 4892,
+            "unit": "Rs/Quintal",
+            "monthly_prices": [
+                {
+                    "month": "2025-03",
+                    "avg": 4200,
+                    "min": 3800,
+                    "max": 4600,
+                    "arrivals_tonnes": 200
+                },
+                {
+                    "month": "2025-04",
+                    "avg": 4100,
+                    "min": 3700,
+                    "max": 4500,
+                    "arrivals_tonnes": 210
+                },
+                {
+                    "month": "2025-05",
+                    "avg": 4000,
+                    "min": 3600,
+                    "max": 4400,
+                    "arrivals_tonnes": 220
+                },
+                {
+                    "month": "2025-06",
+                    "avg": 3900,
+                    "min": 3500,
+                    "max": 4300,
+                    "arrivals_tonnes": 230
+                },
+                {
+                    "month": "2025-07",
+                    "avg": 3800,
+                    "min": 3400,
+                    "max": 4200,
+                    "arrivals_tonnes": 240
+                },
+                {
+                    "month": "2025-08",
+                    "avg": 3850,
+                    "min": 3450,
+                    "max": 4250,
+                    "arrivals_tonnes": 235
+                },
+                {
+                    "month": "2025-09",
+                    "avg": 3950,
+                    "min": 3550,
+                    "max": 4350,
+                    "arrivals_tonnes": 225
+                },
+                {
+                    "month": "2025-10",
+                    "avg": 4050,
+                    "min": 3650,
+                    "max": 4450,
+                    "arrivals_tonnes": 215
+                },
+                {
+                    "month": "2025-11",
+                    "avg": 4150,
+                    "min": 3750,
+                    "max": 4550,
+                    "arrivals_tonnes": 205
+                },
+                {
+                    "month": "2025-12",
+                    "avg": 4250,
+                    "min": 3850,
+                    "max": 4650,
+                    "arrivals_tonnes": 195
+                },
+                {
+                    "month": "2026-01",
+                    "avg": 4350,
+                    "min": 3950,
+                    "max": 4750,
+                    "arrivals_tonnes": 185
+                },
+                {
+                    "month": "2026-02",
+                    "avg": 4450,
+                    "min": 4050,
+                    "max": 4850,
+                    "arrivals_tonnes": 175
+                }
+            ],
+            "daily_recent": [
+                {
+                    "date": "2026-02-06",
+                    "price": 4320,
+                    "arrivals": 5.8
+                },
+                {
+                    "date": "2026-02-07",
+                    "price": 4350,
+                    "arrivals": 5.5
+                },
+                {
+                    "date": "2026-02-08",
+                    "price": 4340,
+                    "arrivals": 5.7
+                },
+                {
+                    "date": "2026-02-09",
+                    "price": 4370,
+                    "arrivals": 5.3
+                },
+                {
+                    "date": "2026-02-10",
+                    "price": 4360,
+                    "arrivals": 5.5
+                },
+                {
+                    "date": "2026-02-11",
+                    "price": 4390,
+                    "arrivals": 5.1
+                },
+                {
+                    "date": "2026-02-12",
+                    "price": 4380,
+                    "arrivals": 5.3
+                },
+                {
+                    "date": "2026-02-13",
+                    "price": 4410,
+                    "arrivals": 4.9
+                },
+                {
+                    "date": "2026-02-14",
+                    "price": 4400,
+                    "arrivals": 5.1
+                },
+                {
+                    "date": "2026-02-15",
+                    "price": 4430,
+                    "arrivals": 4.7
+                },
+                {
+                    "date": "2026-02-16",
+                    "price": 4420,
+                    "arrivals": 4.9
+                },
+                {
+                    "date": "2026-02-17",
+                    "price": 4450,
+                    "arrivals": 4.5
+                },
+                {
+                    "date": "2026-02-18",
+                    "price": 4440,
+                    "arrivals": 4.7
+                },
+                {
+                    "date": "2026-02-19",
+                    "price": 4470,
+                    "arrivals": 4.3
+                },
+                {
+                    "date": "2026-02-20",
+                    "price": 4460,
+                    "arrivals": 4.5
+                },
+                {
+                    "date": "2026-02-21",
+                    "price": 4490,
+                    "arrivals": 4.1
+                },
+                {
+                    "date": "2026-02-22",
+                    "price": 4480,
+                    "arrivals": 4.3
+                },
+                {
+                    "date": "2026-02-23",
+                    "price": 4510,
+                    "arrivals": 3.9
+                },
+                {
+                    "date": "2026-02-24",
+                    "price": 4500,
+                    "arrivals": 4.1
+                },
+                {
+                    "date": "2026-02-25",
+                    "price": 4530,
+                    "arrivals": 3.7
+                },
+                {
+                    "date": "2026-02-26",
+                    "price": 4520,
+                    "arrivals": 3.9
+                },
+                {
+                    "date": "2026-02-27",
+                    "price": 4550,
+                    "arrivals": 3.5
+                },
+                {
+                    "date": "2026-02-28",
+                    "price": 4540,
+                    "arrivals": 3.7
+                },
+                {
+                    "date": "2026-03-01",
+                    "price": 4570,
+                    "arrivals": 3.3
+                },
+                {
+                    "date": "2026-03-02",
+                    "price": 4560,
+                    "arrivals": 3.5
+                },
+                {
+                    "date": "2026-03-03",
+                    "price": 4590,
+                    "arrivals": 3.1
+                },
+                {
+                    "date": "2026-03-04",
+                    "price": 4580,
+                    "arrivals": 3.3
+                },
+                {
+                    "date": "2026-03-05",
+                    "price": 4610,
+                    "arrivals": 2.9
+                },
+                {
+                    "date": "2026-03-06",
+                    "price": 4600,
+                    "arrivals": 3.1
+                },
+                {
+                    "date": "2026-03-07",
+                    "price": 4630,
+                    "arrivals": 2.7
+                },
+                {
+                    "date": "2026-03-08",
+                    "price": 4620,
+                    "arrivals": 3.0
+                }
+            ],
+            "mandi_spread": {
+                "Khordha Mandi": 1.00,
+                "Bhubaneswar APMC": 1.01,
+                "Cuttack Mandi": 1.02,
+                "Puri Market": 0.97,
+                "Berhampur Market": 0.93
+            }
+        }
+    }
+}

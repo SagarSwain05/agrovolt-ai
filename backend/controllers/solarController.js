@@ -1,20 +1,6 @@
 const Farm = require("../models/Farm");
 const SolarData = require("../models/SolarData");
-
-// Calculate optimal tilt angle based on latitude
-const calculateOptimalTilt = (latitude, season = "annual") => {
-  let tilt;
-  
-  if (season === "summer") {
-    tilt = latitude - 15;
-  } else if (season === "winter") {
-    tilt = latitude + 15;
-  } else {
-    tilt = latitude * 0.9; // Annual average
-  }
-  
-  return Math.max(0, Math.min(90, tilt)); // Clamp between 0-90
-};
+const solarPosition = require("../mlModels/solarPosition");
 
 // @desc    Get solar optimization data
 // @route   GET /api/solar/optimize
@@ -41,13 +27,12 @@ exports.getSolarOptimization = async (req, res) => {
       });
     }
 
-    const { latitude } = farm.location;
-    const optimalTilt = calculateOptimalTilt(latitude);
-    const currentTilt = farm.panelTilt;
+    const { latitude, longitude } = farm.location;
+    const currentTilt = farm.panelTilt || 20;
+    const capacity = farm.solarCapacityKW || 5;
 
-    // Calculate efficiency gain potential
-    const tiltDifference = Math.abs(optimalTilt - currentTilt);
-    const efficiencyGain = Math.max(0, 15 - tiltDifference); // Up to 15% gain
+    // NREL Solar Position Analysis
+    const analysis = solarPosition.analyze(latitude, longitude, currentTilt, capacity, 'ginger');
 
     // Get recent solar data
     const recentData = await SolarData.find({ farmId: farm._id })
@@ -60,7 +45,7 @@ exports.getSolarOptimization = async (req, res) => {
 
     const avgEnergy = recentData.length > 0
       ? recentData.reduce((sum, d) => sum + d.energyProduced, 0) / recentData.length
-      : farm.solarCapacityKW * 4; // 4 hours average
+      : analysis.energyEstimate.currentDaily;
 
     res.json({
       success: true,
@@ -70,29 +55,26 @@ exports.getSolarOptimization = async (req, res) => {
           efficiency: Math.round(avgEfficiency * 10) / 10,
           dailyEnergy: Math.round(avgEnergy * 10) / 10,
           panelCount: farm.panelCount,
-          capacity: farm.solarCapacityKW
+          capacity: capacity
         },
         optimal: {
-          tilt: Math.round(optimalTilt * 10) / 10,
-          potentialGain: Math.round(efficiencyGain * 10) / 10,
-          projectedEnergy: Math.round(avgEnergy * (1 + efficiencyGain / 100) * 10) / 10
+          tilt: analysis.optimalTilt,
+          potentialGain: analysis.efficiencyGain,
+          projectedEnergy: analysis.energyEstimate.optimizedDaily
         },
+        sunPath: analysis.sunPath,
+        bioCooling: analysis.bioCooling,
+        energyEstimate: analysis.energyEstimate,
+        sunrise: analysis.sunrise,
+        sunset: analysis.sunset,
         recommendations: {
-          tiltAdjustment: tiltDifference > 5 ? `Adjust tilt to ${Math.round(optimalTilt)}° for ${Math.round(efficiencyGain)}% efficiency gain` : "Current tilt is optimal",
+          tiltAdjustment: analysis.tiltDifference > 3
+            ? `Adjust tilt to ${analysis.optimalTilt}° for ${analysis.efficiencyGain} efficiency gain`
+            : "Current tilt is near optimal",
           cleaning: avgEfficiency < 80 ? "Panel cleaning recommended - efficiency below 80%" : "Panel condition good",
-          cooling: "Maintain crop irrigation during peak hours (11 AM - 3 PM) for natural cooling effect"
+          cooling: `Crop transpiration reduces panel temp by ${analysis.bioCooling.temperatureReduction}°C, boosting efficiency by ${analysis.bioCooling.efficiencyGain}%`
         },
-        forecast: {
-          next7Days: [
-            { day: "Mon", energy: avgEnergy * 0.95, efficiency: 86 },
-            { day: "Tue", energy: avgEnergy * 1.05, efficiency: 88 },
-            { day: "Wed", energy: avgEnergy * 1.1, efficiency: 89 },
-            { day: "Thu", energy: avgEnergy * 0.9, efficiency: 85 },
-            { day: "Fri", energy: avgEnergy * 1.0, efficiency: 87 },
-            { day: "Sat", energy: avgEnergy * 1.05, efficiency: 88 },
-            { day: "Sun", energy: avgEnergy * 1.08, efficiency: 89 }
-          ]
-        }
+        algorithm: "NREL Solar Position Algorithm (Simplified)",
       }
     });
   } catch (error) {

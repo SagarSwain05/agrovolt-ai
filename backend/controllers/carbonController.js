@@ -1,29 +1,26 @@
 const Farm = require("../models/Farm");
 const SolarData = require("../models/SolarData");
 const CarbonTransaction = require("../models/CarbonTransaction");
+const esgGenerator = require("../utils/esgCertificate");
 
-// Calculate carbon credits based on solar energy and water savings
+// Calculate carbon credits using IPCC-verified emission factors
 const calculateCarbonCredits = (energyKWh, waterLiters) => {
-  // Grid emission factor for India: ~0.82 kg CO2 per kWh
-  const co2FromSolar = energyKWh * 0.82;
-  
-  // Water savings: 0.002 kg CO2 per liter (pumping energy saved)
-  const co2FromWater = waterLiters * 0.002;
-  
-  const totalCO2 = co2FromSolar + co2FromWater;
-  
-  // 1 carbon credit = 1 ton (1000 kg) of CO2
-  const credits = totalCO2 / 1000;
-  
+  const savings = esgGenerator.calculateSavings({
+    solarKwhGenerated: energyKWh,
+    waterSavedLiters: waterLiters,
+  });
+
   return {
-    credits,
-    co2Reduced: totalCO2,
+    credits: savings.totalTonnesCo2,
+    co2Reduced: savings.totalKgCo2,
     breakdown: {
-      fromSolar: co2FromSolar,
-      fromWater: co2FromWater
-    }
+      fromSolar: savings.breakdown.solarGeneration.kgCo2,
+      fromWater: savings.breakdown.waterSavings.kgCo2,
+    },
+    methodology: savings.methodology,
   };
 };
+
 
 // @desc    Get carbon wallet data
 // @route   GET /api/carbon/wallet
@@ -248,6 +245,62 @@ exports.getCarbonHistory = async (req, res) => {
     res.json({
       success: true,
       data: transactions
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
+// @desc    Generate ESG certificate
+// @route   POST /api/carbon/certificate
+// @access  Private
+exports.generateCertificate = async (req, res) => {
+  try {
+    const { solarKwhGenerated, waterSavedLiters, bioCoolingDegrees, days } = req.body;
+    const user = req.user;
+
+    const certificate = esgGenerator.generateCertificate(
+      { name: user.name, district: 'Khordha', state: 'Odisha' },
+      { solarKwhGenerated: solarKwhGenerated || 0, waterSavedLiters: waterSavedLiters || 0, bioCoolingDegrees: bioCoolingDegrees || 0, days: days || 30 }
+    );
+
+    res.json({
+      success: true,
+      data: certificate
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};
+
+// @desc    Get full carbon intelligence (SOC, methane, price forecast, yield prediction)
+// @route   GET /api/carbon/intelligence
+// @access  Private
+exports.getIntelligence = async (req, res) => {
+  try {
+    const carbonIntel = require("../mlModels/carbonIntelligence");
+    const farm = await Farm.findOne({ userId: req.user._id });
+    const { soilType, cropType, irrigationType } = req.query;
+
+    const intel = carbonIntel.getFullIntelligence({
+      soilType: soilType || farm?.soilType || 'loamy',
+      farmAreaHa: farm?.area || 1.2,
+      panelCoverage: 0.4,
+      cropType: cropType || 'rice',
+      irrigationType: irrigationType || 'awd',
+    });
+
+    res.json({
+      success: true,
+      data: intel
     });
   } catch (error) {
     console.error(error);

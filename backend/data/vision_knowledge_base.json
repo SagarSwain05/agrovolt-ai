@@ -1,0 +1,2610 @@
+{
+    "metadata": {
+        "description": "AgroVolt Vision AI — Worldwide Crop Disease & Solar Panel Knowledge Base",
+        "version": "2.0.0",
+        "training_datasets": {
+            "crop_disease": {
+                "primary": "PlantDoc Dataset (IIT Bombay/Delhi)",
+                "specs": "2,598 real-world images, 13 plant species, 17 disease classes, XML bounding box annotations",
+                "url": "https://github.com/pratikkayal/PlantDoc-Dataset",
+                "advantage": "Real-field backgrounds (noisy, complex) vs PlantVillage lab-controlled sterile backgrounds",
+                "annotation_format": "PASCAL VOC XML (YOLO-ready)",
+                "secondary": "PlantVillage (54K images) — used for transfer learning pre-training only"
+            },
+            "crop_identification": {
+                "primary": "iNaturalist Challenge Dataset",
+                "specs": "Millions of smartphone-captured plant images worldwide",
+                "url": "https://www.inaturalist.org/",
+                "advantage": "Crowdsourced from real users globally — massive species diversity",
+                "secondary": "Roboflow Universe Leaf Crop Identification (cleaned, augmented)"
+            },
+            "solar_panel": {
+                "primary": "Infrared & RGB Solar Panel Faults (Kaggle)",
+                "specs": "IR + visible light imagery of panel defects",
+                "url": "https://www.kaggle.com/datasets/",
+                "secondary": "UAV Solar Panel Dust Detection (Roboflow)",
+                "advantage": "Enables smartphone-based fault detection replacing expensive thermal drones"
+            }
+        },
+        "model_architecture": {
+            "stage_1_classifier": "Vision Transformer (ViT) / ResNet-50 — subject identification",
+            "stage_2_detector": "YOLOv8-Nano — real-time bounding box disease/defect detection",
+            "stage_3_context": "LLM Context Injector — weather + farm history + economic impact",
+            "inference_target": "< 200ms on mobile edge (ONNX Runtime)",
+            "transfer_learning": "Fine-tuned YOLOv8n on PlantDoc (2x accuracy vs training from scratch)"
+        }
+    },
+    "crop_species_signatures": {
+        "Tomato": {
+            "family": "Solanaceae",
+            "leaf_shape": "compound-pinnate",
+            "color_profile": "dark-green",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                90,
+                120
+            ],
+            "inaturalist_id": 49269
+        },
+        "Rice": {
+            "family": "Poaceae",
+            "leaf_shape": "linear-lanceolate",
+            "color_profile": "bright-green",
+            "growth_stage_days": [
+                0,
+                25,
+                50,
+                80,
+                120
+            ],
+            "inaturalist_id": 61798
+        },
+        "Wheat": {
+            "family": "Poaceae",
+            "leaf_shape": "linear-flat",
+            "color_profile": "green-to-golden",
+            "growth_stage_days": [
+                0,
+                20,
+                50,
+                90,
+                130
+            ],
+            "inaturalist_id": 56816
+        },
+        "Maize": {
+            "family": "Poaceae",
+            "leaf_shape": "broad-linear",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                20,
+                45,
+                75,
+                110
+            ],
+            "inaturalist_id": 57191
+        },
+        "Potato": {
+            "family": "Solanaceae",
+            "leaf_shape": "compound-odd",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                20,
+                40,
+                65,
+                100
+            ],
+            "inaturalist_id": 49271
+        },
+        "Grape": {
+            "family": "Vitaceae",
+            "leaf_shape": "palmate-lobed",
+            "color_profile": "dark-green-glossy",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                100,
+                150
+            ],
+            "inaturalist_id": 53456
+        },
+        "Apple": {
+            "family": "Rosaceae",
+            "leaf_shape": "ovate-serrate",
+            "color_profile": "dark-green-matte",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                120,
+                180
+            ],
+            "inaturalist_id": 48222
+        },
+        "Citrus": {
+            "family": "Rutaceae",
+            "leaf_shape": "elliptic-glossy",
+            "color_profile": "dark-green-waxy",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                120,
+                240
+            ],
+            "inaturalist_id": 49227
+        },
+        "Coffee": {
+            "family": "Rubiaceae",
+            "leaf_shape": "elliptic-opposite",
+            "color_profile": "deep-green-shiny",
+            "growth_stage_days": [
+                0,
+                60,
+                120,
+                240,
+                365
+            ],
+            "inaturalist_id": 48860
+        },
+        "Cotton": {
+            "family": "Malvaceae",
+            "leaf_shape": "palmate-3-5-lobed",
+            "color_profile": "light-green",
+            "growth_stage_days": [
+                0,
+                25,
+                50,
+                90,
+                150
+            ],
+            "inaturalist_id": 47286
+        },
+        "Soybean": {
+            "family": "Fabaceae",
+            "leaf_shape": "trifoliate-ovate",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                15,
+                35,
+                70,
+                110
+            ],
+            "inaturalist_id": 53263
+        },
+        "Sugarcane": {
+            "family": "Poaceae",
+            "leaf_shape": "long-linear",
+            "color_profile": "green-with-purple",
+            "growth_stage_days": [
+                0,
+                45,
+                90,
+                180,
+                365
+            ],
+            "inaturalist_id": 63330
+        },
+        "Turmeric": {
+            "family": "Zingiberaceae",
+            "leaf_shape": "oblong-lanceolate",
+            "color_profile": "bright-green",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                120,
+                240
+            ],
+            "inaturalist_id": 157321
+        },
+        "Groundnut": {
+            "family": "Fabaceae",
+            "leaf_shape": "pinnate-4-leaflet",
+            "color_profile": "light-green",
+            "growth_stage_days": [
+                0,
+                20,
+                45,
+                80,
+                120
+            ],
+            "inaturalist_id": 54421
+        },
+        "Millet": {
+            "family": "Poaceae",
+            "leaf_shape": "linear-hairy",
+            "color_profile": "grey-green",
+            "growth_stage_days": [
+                0,
+                15,
+                35,
+                60,
+                90
+            ],
+            "inaturalist_id": 58926
+        },
+        "Pepper": {
+            "family": "Solanaceae",
+            "leaf_shape": "ovate-smooth",
+            "color_profile": "deep-green",
+            "growth_stage_days": [
+                0,
+                25,
+                50,
+                80,
+                120
+            ],
+            "inaturalist_id": 49268
+        },
+        "Strawberry": {
+            "family": "Rosaceae",
+            "leaf_shape": "trifoliate-serrate",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                20,
+                40,
+                70,
+                120
+            ],
+            "inaturalist_id": 48439
+        },
+        "Cherry": {
+            "family": "Rosaceae",
+            "leaf_shape": "ovate-doubly-serrate",
+            "color_profile": "dark-green",
+            "growth_stage_days": [
+                0,
+                25,
+                50,
+                90,
+                150
+            ],
+            "inaturalist_id": 48234
+        },
+        "Peach": {
+            "family": "Rosaceae",
+            "leaf_shape": "lanceolate-serrate",
+            "color_profile": "dark-green",
+            "growth_stage_days": [
+                0,
+                25,
+                50,
+                90,
+                150
+            ],
+            "inaturalist_id": 48232
+        },
+        "Corn": {
+            "family": "Poaceae",
+            "leaf_shape": "broad-linear-wavy",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                20,
+                45,
+                75,
+                110
+            ],
+            "inaturalist_id": 57191
+        },
+        "Squash": {
+            "family": "Cucurbitaceae",
+            "leaf_shape": "palmate-large",
+            "color_profile": "rough-green",
+            "growth_stage_days": [
+                0,
+                15,
+                30,
+                55,
+                80
+            ],
+            "inaturalist_id": 49278
+        },
+        "Mango": {
+            "family": "Anacardiaceae",
+            "leaf_shape": "lanceolate-leathery",
+            "color_profile": "dark-green-glossy",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                120,
+                180
+            ],
+            "inaturalist_id": 48637
+        },
+        "Banana": {
+            "family": "Musaceae",
+            "leaf_shape": "oblong-massive",
+            "color_profile": "bright-green",
+            "growth_stage_days": [
+                0,
+                60,
+                120,
+                240,
+                365
+            ],
+            "inaturalist_id": 60577
+        },
+        "Tea": {
+            "family": "Theaceae",
+            "leaf_shape": "elliptic-serrate",
+            "color_profile": "dark-green-shiny",
+            "growth_stage_days": [
+                0,
+                30,
+                60,
+                120,
+                365
+            ],
+            "inaturalist_id": 47944
+        },
+        "Chili": {
+            "family": "Solanaceae",
+            "leaf_shape": "lanceolate-smooth",
+            "color_profile": "dark-green",
+            "growth_stage_days": [
+                0,
+                20,
+                40,
+                70,
+                110
+            ],
+            "inaturalist_id": 52572
+        },
+        "Onion": {
+            "family": "Amaryllidaceae",
+            "leaf_shape": "tubular-hollow",
+            "color_profile": "blue-green",
+            "growth_stage_days": [
+                0,
+                20,
+                45,
+                75,
+                120
+            ],
+            "inaturalist_id": 53090
+        },
+        "Okra": {
+            "family": "Malvaceae",
+            "leaf_shape": "palmate-5-lobed",
+            "color_profile": "medium-green",
+            "growth_stage_days": [
+                0,
+                15,
+                30,
+                50,
+                70
+            ],
+            "inaturalist_id": 85011
+        },
+        "Spinach": {
+            "family": "Amaranthaceae",
+            "leaf_shape": "ovate-rosette",
+            "color_profile": "dark-green",
+            "growth_stage_days": [
+                0,
+                10,
+                20,
+                35,
+                50
+            ],
+            "inaturalist_id": 53206
+        },
+        "Cauliflower": {
+            "family": "Brassicaceae",
+            "leaf_shape": "large-waxy-oblong",
+            "color_profile": "blue-green",
+            "growth_stage_days": [
+                0,
+                20,
+                40,
+                65,
+                90
+            ],
+            "inaturalist_id": 53440
+        },
+        "Cabbage": {
+            "family": "Brassicaceae",
+            "leaf_shape": "round-waxy",
+            "color_profile": "blue-green",
+            "growth_stage_days": [
+                0,
+                20,
+                40,
+                60,
+                80
+            ],
+            "inaturalist_id": 53440
+        }
+    },
+    "crop_diseases": {
+        "Tomato": [
+            {
+                "disease": "Early Blight",
+                "pathogen": "Alternaria solani",
+                "class": "fungal",
+                "plantdoc_class": "Tomato_Early_blight",
+                "confidence_range": [
+                    0.85,
+                    0.96
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15,
+                    35
+                ],
+                "symptoms": "Dark brown concentric rings on older leaves, moving upward",
+                "treatment": [
+                    "Apply Mancozeb 75% WP @ 2.5g/L",
+                    "Remove severely affected leaves",
+                    "Improve air circulation between rows",
+                    "Avoid overhead irrigation"
+                ],
+                "organic_alt": "Spray copper fungicide or neem oil @ 5ml/L",
+                "spread_risk": "HIGH in humid conditions (>80% RH)",
+                "yield_loss_pct": [
+                    5,
+                    15,
+                    40
+                ],
+                "economic_impact_inr_per_q": [
+                    250,
+                    750,
+                    2000
+                ]
+            },
+            {
+                "disease": "Late Blight",
+                "pathogen": "Phytophthora infestans",
+                "class": "oomycete",
+                "plantdoc_class": "Tomato_Late_blight",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    8,
+                    25,
+                    50
+                ],
+                "symptoms": "Water-soaked lesions turning brown-black, white fungal growth underneath",
+                "treatment": [
+                    "Apply Metalaxyl-Mancozeb @ 2.5g/L immediately",
+                    "Remove and destroy infected plants",
+                    "Ensure proper drainage",
+                    "Apply copper-based fungicide"
+                ],
+                "organic_alt": "Bordeaux mixture 1% spray",
+                "spread_risk": "CRITICAL — can destroy entire crop in 7-10 days",
+                "yield_loss_pct": [
+                    10,
+                    30,
+                    80
+                ],
+                "economic_impact_inr_per_q": [
+                    500,
+                    1500,
+                    4000
+                ]
+            },
+            {
+                "disease": "Bacterial Spot",
+                "pathogen": "Xanthomonas campestris",
+                "class": "bacterial",
+                "plantdoc_class": "Tomato_Bacterial_spot",
+                "confidence_range": [
+                    0.78,
+                    0.91
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Small dark water-soaked spots on leaves, raised bumps on fruit",
+                "treatment": [
+                    "Apply copper hydroxide @ 2g/L",
+                    "Avoid working with wet plants",
+                    "Use disease-free seedlings",
+                    "Practice crop rotation (3 years)"
+                ],
+                "organic_alt": "Copper + Bacillus subtilis bio-spray",
+                "spread_risk": "HIGH during rainy season",
+                "yield_loss_pct": [
+                    5,
+                    20
+                ],
+                "economic_impact_inr_per_q": [
+                    250,
+                    1000
+                ]
+            },
+            {
+                "disease": "Leaf Curl Virus",
+                "pathogen": "ToLCV (Begomovirus)",
+                "class": "viral",
+                "plantdoc_class": "Tomato_Leaf_curl",
+                "confidence_range": [
+                    0.80,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    20,
+                    60
+                ],
+                "symptoms": "Upward curling of leaves, stunted growth, yellow margins",
+                "treatment": [
+                    "Remove infected plants immediately",
+                    "Control whitefly vector with neem oil",
+                    "Use resistant varieties (Arka Rakshak)",
+                    "Install yellow sticky traps"
+                ],
+                "organic_alt": "Neem oil 5ml/L + yellow sticky traps",
+                "spread_risk": "CRITICAL via whitefly vector",
+                "yield_loss_pct": [
+                    30,
+                    70
+                ],
+                "economic_impact_inr_per_q": [
+                    1500,
+                    3500
+                ]
+            },
+            {
+                "disease": "Septoria Leaf Spot",
+                "pathogen": "Septoria lycopersici",
+                "class": "fungal",
+                "plantdoc_class": "Tomato_Septoria",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15,
+                    30
+                ],
+                "symptoms": "Small circular spots with dark borders and gray centers on lower leaves",
+                "treatment": [
+                    "Apply Chlorothalonil @ 2g/L",
+                    "Remove infected lower leaves",
+                    "Mulch soil to prevent splash-back",
+                    "Stake plants for better air flow"
+                ],
+                "organic_alt": "Baking soda spray (1 tbsp/L water)",
+                "spread_risk": "HIGH – spreads from bottom to top",
+                "yield_loss_pct": [
+                    5,
+                    12,
+                    30
+                ],
+                "economic_impact_inr_per_q": [
+                    250,
+                    600,
+                    1500
+                ]
+            },
+            {
+                "disease": "Mosaic Virus",
+                "pathogen": "TMV/ToMV",
+                "class": "viral",
+                "plantdoc_class": "Tomato_Mosaic_virus",
+                "confidence_range": [
+                    0.75,
+                    0.90
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    10,
+                    40
+                ],
+                "symptoms": "Mottled light/dark green pattern, leaf distortion, stunting",
+                "treatment": [
+                    "Remove infected plants",
+                    "Disinfect tools with 10% bleach",
+                    "Use TMV-resistant hybrids",
+                    "Do NOT smoke near plants (tobacco mosaic)"
+                ],
+                "organic_alt": "Milk spray (1:9 ratio) as viral inhibitor",
+                "spread_risk": "HIGH via mechanical transmission",
+                "yield_loss_pct": [
+                    10,
+                    35
+                ],
+                "economic_impact_inr_per_q": [
+                    500,
+                    1750
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Tomato_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No visible disease symptoms",
+                "treatment": [
+                    "Continue current care regimen",
+                    "Schedule next inspection in 7 days"
+                ],
+                "organic_alt": "Preventive neem oil spray every 14 days",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Rice": [
+            {
+                "disease": "Blast",
+                "pathogen": "Magnaporthe oryzae",
+                "class": "fungal",
+                "plantdoc_class": "Rice_Blast",
+                "confidence_range": [
+                    0.83,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    45
+                ],
+                "symptoms": "Diamond-shaped lesions with gray center and brown border",
+                "treatment": [
+                    "Apply Tricyclazole 75% WP @ 0.6g/L",
+                    "Drain field and reduce nitrogen",
+                    "Use resistant varieties (Swarna)",
+                    "Maintain silicon nutrition"
+                ],
+                "organic_alt": "Trichoderma viride soil application",
+                "spread_risk": "CRITICAL in high humidity + moderate temperature",
+                "yield_loss_pct": [
+                    10,
+                    30,
+                    70
+                ],
+                "economic_impact_inr_per_q": [
+                    200,
+                    600,
+                    1400
+                ]
+            },
+            {
+                "disease": "Brown Spot",
+                "pathogen": "Bipolaris oryzae",
+                "class": "fungal",
+                "plantdoc_class": "Rice_Brown_spot",
+                "confidence_range": [
+                    0.80,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Oval brown spots with yellow halos on leaves",
+                "treatment": [
+                    "Apply Mancozeb 75% WP @ 2.5g/L",
+                    "Balance fertilizer application",
+                    "Maintain adequate water depth",
+                    "Use certified disease-free seeds"
+                ],
+                "organic_alt": "Pseudomonas fluorescens seed treatment",
+                "spread_risk": "Moderate – nutrient deficiency increases risk",
+                "yield_loss_pct": [
+                    5,
+                    20
+                ],
+                "economic_impact_inr_per_q": [
+                    100,
+                    400
+                ]
+            },
+            {
+                "disease": "Bacterial Leaf Blight",
+                "pathogen": "Xanthomonas oryzae",
+                "class": "bacterial",
+                "plantdoc_class": "Rice_BLB",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    40
+                ],
+                "symptoms": "Yellow-to-white lesions from leaf tip, wavy leaf margins",
+                "treatment": [
+                    "Drain field water",
+                    "Apply Streptocycline @ 0.5g/L",
+                    "Reduce nitrogen, increase potash",
+                    "Use resistant varieties"
+                ],
+                "organic_alt": "Copper hydroxide spray",
+                "spread_risk": "HIGH in flooded conditions + storm damage",
+                "yield_loss_pct": [
+                    15,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    1000
+                ]
+            },
+            {
+                "disease": "Sheath Blight",
+                "pathogen": "Rhizoctonia solani",
+                "class": "fungal",
+                "plantdoc_class": "Rice_Sheath_blight",
+                "confidence_range": [
+                    0.78,
+                    0.91
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    10,
+                    25,
+                    40
+                ],
+                "symptoms": "Irregular greenish-gray spots on leaf sheaths, banded pattern",
+                "treatment": [
+                    "Apply Hexaconazole 5% SC @ 2ml/L",
+                    "Reduce plant density",
+                    "Avoid excess nitrogen",
+                    "Ensure proper water management"
+                ],
+                "organic_alt": "Trichoderma harzianum soil drench",
+                "spread_risk": "HIGH in dense plantings with high nitrogen",
+                "yield_loss_pct": [
+                    8,
+                    20,
+                    40
+                ],
+                "economic_impact_inr_per_q": [
+                    160,
+                    400,
+                    800
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Rice_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No visible symptoms",
+                "treatment": [
+                    "Monitor during tillering stage",
+                    "Maintain balanced nutrition"
+                ],
+                "organic_alt": "Continue bio-fertilizer schedule",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Wheat": [
+            {
+                "disease": "Rust (Puccinia)",
+                "pathogen": "Puccinia triticina",
+                "class": "fungal",
+                "plantdoc_class": "Wheat_Rust",
+                "confidence_range": [
+                    0.84,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    40
+                ],
+                "symptoms": "Orange-brown pustules on leaves and stems",
+                "treatment": [
+                    "Apply Propiconazole 25% EC @ 1ml/L",
+                    "Remove volunteer plants",
+                    "Use resistant varieties",
+                    "Apply at first sign of pustules"
+                ],
+                "organic_alt": "Sulphur dust application",
+                "spread_risk": "CRITICAL — airborne spores travel 100s of km",
+                "yield_loss_pct": [
+                    5,
+                    20,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    120,
+                    480,
+                    1200
+                ]
+            },
+            {
+                "disease": "Powdery Mildew",
+                "pathogen": "Blumeria graminis",
+                "class": "fungal",
+                "plantdoc_class": "Wheat_Powdery_mildew",
+                "confidence_range": [
+                    0.82,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15
+                ],
+                "symptoms": "White powdery patches on leaves and stems",
+                "treatment": [
+                    "Apply Carbendazim 50% WP @ 1g/L",
+                    "Ensure adequate spacing",
+                    "Reduce nitrogen overuse"
+                ],
+                "organic_alt": "Milk spray or baking soda solution",
+                "spread_risk": "Moderate in cool, humid conditions",
+                "yield_loss_pct": [
+                    5,
+                    15
+                ],
+                "economic_impact_inr_per_q": [
+                    120,
+                    360
+                ]
+            },
+            {
+                "disease": "Karnal Bunt",
+                "pathogen": "Tilletia indica",
+                "class": "fungal",
+                "plantdoc_class": "Wheat_Karnal_bunt",
+                "confidence_range": [
+                    0.75,
+                    0.88
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    10,
+                    30
+                ],
+                "symptoms": "Black powdery mass in infected grains, fishy odor",
+                "treatment": [
+                    "Use certified disease-free seeds",
+                    "Seed treatment with Carboxin",
+                    "Avoid late sowing",
+                    "Report to agriculture department"
+                ],
+                "organic_alt": "Hot water seed treatment (52°C, 10 min)",
+                "spread_risk": "HIGH — quarantine pest, export ban risk",
+                "yield_loss_pct": [
+                    10,
+                    30
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    900
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Wheat_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No symptoms",
+                "treatment": [
+                    "Continue monitoring at heading stage"
+                ],
+                "organic_alt": "Preventive bio-agent sprays",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Potato": [
+            {
+                "disease": "Early Blight",
+                "pathogen": "Alternaria solani",
+                "class": "fungal",
+                "plantdoc_class": "Potato_Early_blight",
+                "confidence_range": [
+                    0.84,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15,
+                    35
+                ],
+                "symptoms": "Dark brown concentric ring lesions on older leaves",
+                "treatment": [
+                    "Apply Mancozeb @ 2.5g/L",
+                    "Remove lower infected leaves",
+                    "Ensure adequate nutrition",
+                    "Avoid water stress"
+                ],
+                "organic_alt": "Copper oxychloride spray",
+                "spread_risk": "HIGH in warm, humid weather",
+                "yield_loss_pct": [
+                    5,
+                    15,
+                    35
+                ],
+                "economic_impact_inr_per_q": [
+                    100,
+                    300,
+                    700
+                ]
+            },
+            {
+                "disease": "Late Blight",
+                "pathogen": "Phytophthora infestans",
+                "class": "oomycete",
+                "plantdoc_class": "Potato_Late_blight",
+                "confidence_range": [
+                    0.85,
+                    0.96
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    50
+                ],
+                "symptoms": "Water-soaked dark patches, white fungal growth on underside",
+                "treatment": [
+                    "Apply Cymoxanil + Mancozeb immediately",
+                    "Destroy infected plants",
+                    "Hill up tubers to protect",
+                    "Apply protective spray every 7 days"
+                ],
+                "organic_alt": "Bordeaux mixture 1%",
+                "spread_risk": "CRITICAL — Irish Famine pathogen",
+                "yield_loss_pct": [
+                    20,
+                    70
+                ],
+                "economic_impact_inr_per_q": [
+                    400,
+                    1400
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Potato_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy foliage",
+                "treatment": [
+                    "Maintain hilling schedule",
+                    "Monitor for pest activity"
+                ],
+                "organic_alt": "Continue bio-inputs",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Grape": [
+            {
+                "disease": "Downy Mildew",
+                "pathogen": "Plasmopara viticola",
+                "class": "oomycete",
+                "plantdoc_class": "Grape_Downy_mildew",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    40
+                ],
+                "symptoms": "Yellow oil spots on upper surface, white downy growth below",
+                "treatment": [
+                    "Apply Metalaxyl-Mancozeb @ 2.5g/L",
+                    "Improve canopy ventilation",
+                    "Remove infected shoots",
+                    "Apply before rainy season"
+                ],
+                "organic_alt": "Copper hydroxide spray",
+                "spread_risk": "HIGH in rainy season",
+                "yield_loss_pct": [
+                    5,
+                    25,
+                    60
+                ],
+                "economic_impact_inr_per_q": [
+                    200,
+                    1000,
+                    2400
+                ]
+            },
+            {
+                "disease": "Powdery Mildew",
+                "pathogen": "Erysiphe necator",
+                "class": "fungal",
+                "plantdoc_class": "Grape_Powdery_mildew",
+                "confidence_range": [
+                    0.84,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "White powdery coating on leaves, shoots, and berries",
+                "treatment": [
+                    "Apply Sulphur 80% WP @ 3g/L",
+                    "Ensure canopy management",
+                    "Remove infected parts"
+                ],
+                "organic_alt": "Potassium bicarbonate spray",
+                "spread_risk": "Moderate in dry, warm weather",
+                "yield_loss_pct": [
+                    5,
+                    20
+                ],
+                "economic_impact_inr_per_q": [
+                    200,
+                    800
+                ]
+            },
+            {
+                "disease": "Black Rot",
+                "pathogen": "Guignardia bidwellii",
+                "class": "fungal",
+                "plantdoc_class": "Grape_Black_rot",
+                "confidence_range": [
+                    0.78,
+                    0.91
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    10,
+                    35
+                ],
+                "symptoms": "Brown circular leaf spots, mummified black berries",
+                "treatment": [
+                    "Apply Myclobutanil before bloom",
+                    "Remove mummified fruit",
+                    "Prune for better air flow",
+                    "Apply at 10-14 day intervals in wet season"
+                ],
+                "organic_alt": "Lime sulfur dormant spray",
+                "spread_risk": "HIGH after warm rain events",
+                "yield_loss_pct": [
+                    15,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    600,
+                    2000
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Grape_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy vine",
+                "treatment": [
+                    "Continue canopy management schedule"
+                ],
+                "organic_alt": "Preventive sulfur dust",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Apple": [
+            {
+                "disease": "Apple Scab",
+                "pathogen": "Venturia inaequalis",
+                "class": "fungal",
+                "plantdoc_class": "Apple_Scab",
+                "confidence_range": [
+                    0.84,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    40
+                ],
+                "symptoms": "Olive-green to brown velvety spots on leaves and fruit",
+                "treatment": [
+                    "Apply Captan 50% WP @ 2g/L",
+                    "Rake and destroy fallen leaves",
+                    "Prune for air circulation",
+                    "Apply at bud break + petal fall"
+                ],
+                "organic_alt": "Lime sulfur + sanitation",
+                "spread_risk": "HIGH in wet spring weather",
+                "yield_loss_pct": [
+                    5,
+                    20,
+                    45
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    1200,
+                    2700
+                ]
+            },
+            {
+                "disease": "Cedar Apple Rust",
+                "pathogen": "Gymnosporangium juniperi-virginianae",
+                "class": "fungal",
+                "plantdoc_class": "Apple_Cedar_rust",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15
+                ],
+                "symptoms": "Bright orange-yellow spots on upper leaf surface",
+                "treatment": [
+                    "Apply Myclobutanil early spring",
+                    "Remove nearby cedar/juniper hosts",
+                    "Use resistant varieties"
+                ],
+                "organic_alt": "Neem oil + remove alternate hosts",
+                "spread_risk": "Moderate — needs alternate host nearby",
+                "yield_loss_pct": [
+                    5,
+                    15
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    900
+                ]
+            },
+            {
+                "disease": "Black Rot",
+                "pathogen": "Botryosphaeria obtusa",
+                "class": "fungal",
+                "plantdoc_class": "Apple_Black_rot",
+                "confidence_range": [
+                    0.79,
+                    0.91
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    10,
+                    30
+                ],
+                "symptoms": "Frogeye leaf spots, rotting fruit with concentric rings",
+                "treatment": [
+                    "Remove mummified fruit and dead wood",
+                    "Apply Captan at pink bud stage",
+                    "Maintain tree vigor"
+                ],
+                "organic_alt": "Copper spray + strict sanitation",
+                "spread_risk": "HIGH in warm, wet seasons",
+                "yield_loss_pct": [
+                    10,
+                    35
+                ],
+                "economic_impact_inr_per_q": [
+                    600,
+                    2100
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Apple_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No visible disease",
+                "treatment": [
+                    "Continue IPM schedule"
+                ],
+                "organic_alt": "Compost tea foliar spray",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Maize": [
+            {
+                "disease": "Northern Leaf Blight",
+                "pathogen": "Exserohilum turcicum",
+                "class": "fungal",
+                "plantdoc_class": "Corn_NLB",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    40
+                ],
+                "symptoms": "Long elliptical gray-green lesions (3-15 cm) on leaves",
+                "treatment": [
+                    "Apply Mancozeb @ 2.5g/L",
+                    "Use resistant hybrids",
+                    "Rotate with non-host crops",
+                    "Remove crop residue"
+                ],
+                "organic_alt": "Trichoderma bio-agent",
+                "spread_risk": "HIGH in moderate temp + high humidity",
+                "yield_loss_pct": [
+                    5,
+                    20,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    100,
+                    400,
+                    1000
+                ]
+            },
+            {
+                "disease": "Fall Armyworm",
+                "pathogen": "Spodoptera frugiperda",
+                "class": "pest",
+                "plantdoc_class": "Corn_FAW",
+                "confidence_range": [
+                    0.85,
+                    0.96
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    50
+                ],
+                "symptoms": "Ragged feeding holes in whorl, frass (sawdust-like excrement)",
+                "treatment": [
+                    "Apply Emamectin benzoate 5% SG @ 0.4g/L",
+                    "Release Trichogramma egg parasitoid",
+                    "Apply early morning/evening",
+                    "Scout weekly during vegetative stage"
+                ],
+                "organic_alt": "Neem oil 5ml/L + Bt spray + sand+lime in whorl",
+                "spread_risk": "CRITICAL — migratory pest, can move 100km/night",
+                "yield_loss_pct": [
+                    20,
+                    60
+                ],
+                "economic_impact_inr_per_q": [
+                    400,
+                    1200
+                ]
+            },
+            {
+                "disease": "Gray Leaf Spot",
+                "pathogen": "Cercospora zeae-maydis",
+                "class": "fungal",
+                "plantdoc_class": "Corn_GLS",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Rectangular gray lesions between veins, parallel to midrib",
+                "treatment": [
+                    "Apply Azoxystrobin @ 1ml/L",
+                    "Use resistant hybrids",
+                    "Avoid continuous corn",
+                    "Tillage to bury residue"
+                ],
+                "organic_alt": "Crop rotation + residue management",
+                "spread_risk": "Moderate in humid, overcast weather",
+                "yield_loss_pct": [
+                    5,
+                    25
+                ],
+                "economic_impact_inr_per_q": [
+                    100,
+                    500
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Corn_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No symptoms",
+                "treatment": [
+                    "Continue monitoring at tasseling stage"
+                ],
+                "organic_alt": "Bio-fertilizer schedule",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Cotton": [
+            {
+                "disease": "Bollworm",
+                "pathogen": "Helicoverpa armigera",
+                "class": "pest",
+                "plantdoc_class": "Cotton_Bollworm",
+                "confidence_range": [
+                    0.84,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    45
+                ],
+                "symptoms": "Bore holes in bolls, frass, boll shedding",
+                "treatment": [
+                    "Apply Chlorantraniliprole 18.5% SC",
+                    "Use pheromone traps",
+                    "Release Trichogramma",
+                    "Bt cotton provides partial resistance"
+                ],
+                "organic_alt": "Neem oil + HaNPV (nuclear polyhedrosis virus)",
+                "spread_risk": "CRITICAL — India's #1 cotton pest",
+                "yield_loss_pct": [
+                    15,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    900,
+                    3000
+                ]
+            },
+            {
+                "disease": "Bacterial Blight",
+                "pathogen": "Xanthomonas citri subsp. malvacearum",
+                "class": "bacterial",
+                "plantdoc_class": "Cotton_Blight",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Angular water-soaked lesions on leaves, blackarm on stems",
+                "treatment": [
+                    "Use Streptocycline @ 0.5g/L",
+                    "Use disease-free seeds",
+                    "Acid delinting of seeds",
+                    "Balanced nutrition"
+                ],
+                "organic_alt": "Copper-based spray + resistant varieties",
+                "spread_risk": "HIGH during monsoon",
+                "yield_loss_pct": [
+                    5,
+                    20
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    1200
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Cotton_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No visible issues",
+                "treatment": [
+                    "Continue IPM scouting"
+                ],
+                "organic_alt": "Maintain bio-agent population",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Coffee": [
+            {
+                "disease": "Coffee Leaf Rust",
+                "pathogen": "Hemileia vastatrix",
+                "class": "fungal",
+                "plantdoc_class": "Coffee_Rust",
+                "confidence_range": [
+                    0.83,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    25,
+                    50
+                ],
+                "symptoms": "Orange-yellow powdery pustules on leaf undersides",
+                "treatment": [
+                    "Apply copper hydroxide @ 3g/L",
+                    "Prune for light penetration",
+                    "Apply systemic fungicide",
+                    "Use resistant varieties (Catimor)"
+                ],
+                "organic_alt": "Bordeaux mixture + shade management",
+                "spread_risk": "CRITICAL — devastated Sri Lanka 1870s",
+                "yield_loss_pct": [
+                    10,
+                    30,
+                    60
+                ],
+                "economic_impact_inr_per_q": [
+                    1000,
+                    3000,
+                    6000
+                ]
+            },
+            {
+                "disease": "Berry Borer",
+                "pathogen": "Hypothenemus hampei",
+                "class": "pest",
+                "plantdoc_class": "Coffee_Berry_borer",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    10,
+                    30
+                ],
+                "symptoms": "Small holes in berries, tunneling damage, premature drop",
+                "treatment": [
+                    "Collect and destroy fallen berries",
+                    "Apply Beauveria bassiana",
+                    "Strip pick ripe berries",
+                    "Use ethanol-methanol traps"
+                ],
+                "organic_alt": "Beauveria bassiana bio-pesticide",
+                "spread_risk": "HIGH in altitude <1500m",
+                "yield_loss_pct": [
+                    10,
+                    35
+                ],
+                "economic_impact_inr_per_q": [
+                    1000,
+                    3500
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Coffee_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy canopy",
+                "treatment": [
+                    "Maintain shade + nutrition"
+                ],
+                "organic_alt": "Compost mulching",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Turmeric": [
+            {
+                "disease": "Rhizome Rot",
+                "pathogen": "Pythium spp.",
+                "class": "oomycete",
+                "plantdoc_class": "Turmeric_Rot",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    40
+                ],
+                "symptoms": "Yellowing pseudostems, water-soaked rhizomes, foul smell",
+                "treatment": [
+                    "Drench soil with Metalaxyl @ 2g/L",
+                    "Improve drainage immediately",
+                    "Remove and destroy infected rhizomes",
+                    "Apply Trichoderma viride to soil"
+                ],
+                "organic_alt": "Trichoderma + Pseudomonas seed treatment",
+                "spread_risk": "HIGH in waterlogged conditions",
+                "yield_loss_pct": [
+                    20,
+                    60
+                ],
+                "economic_impact_inr_per_q": [
+                    1600,
+                    4800
+                ]
+            },
+            {
+                "disease": "Leaf Spot",
+                "pathogen": "Colletotrichum capsici",
+                "class": "fungal",
+                "plantdoc_class": "Turmeric_Leaf_spot",
+                "confidence_range": [
+                    0.82,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Brown oval spots on leaves with yellow halos",
+                "treatment": [
+                    "Apply Carbendazim 50% WP @ 1g/L",
+                    "Remove affected leaves",
+                    "Ensure adequate spacing",
+                    "Avoid overhead irrigation"
+                ],
+                "organic_alt": "Neem oil 5ml/L",
+                "spread_risk": "Moderate",
+                "yield_loss_pct": [
+                    5,
+                    15
+                ],
+                "economic_impact_inr_per_q": [
+                    400,
+                    1200
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Turmeric_Healthy",
+                "confidence_range": [
+                    0.90,
+                    0.98
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Continue current practices"
+                ],
+                "organic_alt": "Bio-mulching",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Soybean": [
+            {
+                "disease": "Soybean Rust",
+                "pathogen": "Phakopsora pachyrhizi",
+                "class": "fungal",
+                "plantdoc_class": "Soybean_Rust",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    40
+                ],
+                "symptoms": "Tan to reddish-brown lesions on lower leaves",
+                "treatment": [
+                    "Apply Trifloxystrobin + Tebuconazole",
+                    "Scout regularly from R1 stage",
+                    "Use early-maturing varieties",
+                    "Apply at first sign"
+                ],
+                "organic_alt": "Resistant cultivars + early harvest",
+                "spread_risk": "HIGH — airborne spores travel long distances",
+                "yield_loss_pct": [
+                    5,
+                    20,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    200,
+                    800,
+                    2000
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Soybean_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Monitor through pod fill"
+                ],
+                "organic_alt": "Continue Rhizobium inoculation",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Groundnut": [
+            {
+                "disease": "Tikka Disease",
+                "pathogen": "Cercospora arachidicola",
+                "class": "fungal",
+                "plantdoc_class": "Groundnut_Tikka",
+                "confidence_range": [
+                    0.81,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20,
+                    35
+                ],
+                "symptoms": "Circular dark brown spots on leaflets, premature defoliation",
+                "treatment": [
+                    "Apply Carbendazim @ 1g/L",
+                    "Spray Chlorothalonil every 14 days",
+                    "Remove crop debris",
+                    "Use resistant varieties"
+                ],
+                "organic_alt": "Neem oil + Trichoderma",
+                "spread_risk": "HIGH in humid kharif season",
+                "yield_loss_pct": [
+                    5,
+                    15,
+                    35
+                ],
+                "economic_impact_inr_per_q": [
+                    250,
+                    750,
+                    1750
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Groundnut_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Continue monitoring"
+                ],
+                "organic_alt": "Bio-agents",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Millet": [
+            {
+                "disease": "Downy Mildew",
+                "pathogen": "Sclerospora graminicola",
+                "class": "oomycete",
+                "plantdoc_class": "Millet_Downy_mildew",
+                "confidence_range": [
+                    0.80,
+                    0.92
+                ],
+                "severity_levels": [
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    15,
+                    40
+                ],
+                "symptoms": "Chlorosis in streaks, white fungal growth on leaf undersides, green ear",
+                "treatment": [
+                    "Seed treatment with Metalaxyl",
+                    "Remove and destroy green ear heads",
+                    "Use resistant hybrid (ICMH 356)",
+                    "Rogue infected plants early"
+                ],
+                "organic_alt": "Trichoderma seed treatment",
+                "spread_risk": "HIGH — soil and seed-borne",
+                "yield_loss_pct": [
+                    15,
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    1000
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Millet_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Continue monitoring"
+                ],
+                "organic_alt": "Bio-agents",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Citrus": [
+            {
+                "disease": "Citrus Canker",
+                "pathogen": "Xanthomonas citri",
+                "class": "bacterial",
+                "plantdoc_class": "Citrus_Canker",
+                "confidence_range": [
+                    0.83,
+                    0.95
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate",
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15,
+                    30
+                ],
+                "symptoms": "Raised brown cork-like lesions with yellow halos on leaves, fruit, stems",
+                "treatment": [
+                    "Copper oxychloride spray @ 3g/L",
+                    "Prune and burn infected parts",
+                    "Windbreak installation",
+                    "Use disease-free nursery stock"
+                ],
+                "organic_alt": "Bordeaux paste on wounds",
+                "spread_risk": "HIGH during monsoon storms",
+                "yield_loss_pct": [
+                    5,
+                    15,
+                    40
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    900,
+                    2400
+                ]
+            },
+            {
+                "disease": "Citrus Greening (HLB)",
+                "pathogen": "Candidatus Liberibacter asiaticus",
+                "class": "bacterial",
+                "plantdoc_class": "Citrus_HLB",
+                "confidence_range": [
+                    0.78,
+                    0.90
+                ],
+                "severity_levels": [
+                    "Severe"
+                ],
+                "affected_area_pct": [
+                    30
+                ],
+                "symptoms": "Asymmetric blotchy mottling, lopsided fruit, bitter taste",
+                "treatment": [
+                    "Remove and burn infected trees",
+                    "Control psyllid vector aggressively",
+                    "Use certified disease-free nursery stock",
+                    "There is NO CURE — management only"
+                ],
+                "organic_alt": "Neem oil for psyllid control + tree removal",
+                "spread_risk": "CRITICAL — incurable, spreading worldwide",
+                "yield_loss_pct": [
+                    50
+                ],
+                "economic_impact_inr_per_q": [
+                    5000
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Citrus_Healthy",
+                "confidence_range": [
+                    0.91,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "No visible disease",
+                "treatment": [
+                    "Continue IPM protocol"
+                ],
+                "organic_alt": "Neem oil preventive spray",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Pepper": [
+            {
+                "disease": "Bacterial Leaf Spot",
+                "pathogen": "Xanthomonas euvesicatoria",
+                "class": "bacterial",
+                "plantdoc_class": "Pepper_Bacterial_spot",
+                "confidence_range": [
+                    0.80,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Small water-soaked spots becoming brown and papery",
+                "treatment": [
+                    "Copper-based spray @ 2g/L",
+                    "Avoid overhead irrigation",
+                    "Rotate crops every 3 years",
+                    "Use treated seeds"
+                ],
+                "organic_alt": "Copper hydroxide + Bacillus subtilis",
+                "spread_risk": "HIGH in warm, wet weather",
+                "yield_loss_pct": [
+                    5,
+                    25
+                ],
+                "economic_impact_inr_per_q": [
+                    200,
+                    1000
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Pepper_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy plant",
+                "treatment": [
+                    "Continue monitoring"
+                ],
+                "organic_alt": "Neem preventive",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Strawberry": [
+            {
+                "disease": "Leaf Scorch",
+                "pathogen": "Diplocarpon earlianum",
+                "class": "fungal",
+                "plantdoc_class": "Strawberry_Leaf_scorch",
+                "confidence_range": [
+                    0.81,
+                    0.93
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    20
+                ],
+                "symptoms": "Irregular purple spots merging into scorched appearance",
+                "treatment": [
+                    "Apply Captan @ 2g/L",
+                    "Remove old infected leaves",
+                    "Ensure good air circulation",
+                    "Use drip irrigation"
+                ],
+                "organic_alt": "Sulfur-based spray + sanitation",
+                "spread_risk": "Moderate",
+                "yield_loss_pct": [
+                    5,
+                    20
+                ],
+                "economic_impact_inr_per_q": [
+                    400,
+                    1600
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Strawberry_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Continue monitoring"
+                ],
+                "organic_alt": "Preventive bio-agents",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ],
+        "Cherry": [
+            {
+                "disease": "Powdery Mildew",
+                "pathogen": "Podosphaera clandestina",
+                "class": "fungal",
+                "plantdoc_class": "Cherry_Powdery_mildew",
+                "confidence_range": [
+                    0.82,
+                    0.94
+                ],
+                "severity_levels": [
+                    "Mild",
+                    "Moderate"
+                ],
+                "affected_area_pct": [
+                    5,
+                    15
+                ],
+                "symptoms": "White powdery patches on new growth and leaf undersides",
+                "treatment": [
+                    "Apply Myclobutanil at shuck fall",
+                    "Ensure open canopy",
+                    "Remove suckers and water sprouts"
+                ],
+                "organic_alt": "Sulfur spray + potassium bicarbonate",
+                "spread_risk": "Moderate",
+                "yield_loss_pct": [
+                    5,
+                    15
+                ],
+                "economic_impact_inr_per_q": [
+                    300,
+                    900
+                ]
+            },
+            {
+                "disease": "Healthy",
+                "pathogen": "None",
+                "class": "none",
+                "plantdoc_class": "Cherry_Healthy",
+                "confidence_range": [
+                    0.92,
+                    0.99
+                ],
+                "severity_levels": [
+                    "None"
+                ],
+                "affected_area_pct": [
+                    0
+                ],
+                "symptoms": "Healthy",
+                "treatment": [
+                    "Continue IPM"
+                ],
+                "organic_alt": "Bio-agents",
+                "spread_risk": "None",
+                "yield_loss_pct": [
+                    0
+                ],
+                "economic_impact_inr_per_q": [
+                    0
+                ]
+            }
+        ]
+    },
+    "panel_defects": [
+        {
+            "defect": "Dust Accumulation",
+            "category": "surface",
+            "dataset_source": "UAV Solar Panel Dust (Roboflow)",
+            "confidence_range": [
+                0.85,
+                0.97
+            ],
+            "severity": "Low",
+            "efficiency_loss_pct": [
+                3,
+                8
+            ],
+            "daily_rupee_loss": [
+                25,
+                65
+            ],
+            "symptoms": "Uniform layer of fine particulate on glass surface",
+            "action": [
+                "Clean panel surface with soft cloth and water",
+                "Schedule cleaning every 2 weeks in dry season",
+                "Consider automated cleaning system",
+                "Apply anti-soiling coating"
+            ],
+            "detection_method": "RGB + Histogram Analysis"
+        },
+        {
+            "defect": "Micro-Crack (Snail Trail)",
+            "category": "structural",
+            "dataset_source": "IR + RGB Solar Panel Faults (Kaggle)",
+            "confidence_range": [
+                0.75,
+                0.92
+            ],
+            "severity": "High",
+            "efficiency_loss_pct": [
+                10,
+                20
+            ],
+            "daily_rupee_loss": [
+                85,
+                170
+            ],
+            "symptoms": "Silver/brown lines (snail trails) across cell surfaces, visible under oblique light",
+            "action": [
+                "Mark panel for replacement during next maintenance",
+                "Monitor output decline with inverter data",
+                "File warranty claim if within coverage",
+                "Do NOT attempt field repair — risk of electric shock"
+            ],
+            "detection_method": "RGB edge detection + IR thermal differential"
+        },
+        {
+            "defect": "Hot Spot",
+            "category": "electrical",
+            "dataset_source": "IR + RGB Solar Panel Faults (Kaggle)",
+            "confidence_range": [
+                0.80,
+                0.95
+            ],
+            "severity": "Critical",
+            "efficiency_loss_pct": [
+                15,
+                30
+            ],
+            "daily_rupee_loss": [
+                125,
+                250
+            ],
+            "symptoms": "Localized overheating detected via thermal imaging, browning/yellowing of cells",
+            "action": [
+                "⚠️ DISCONNECT panel immediately — FIRE RISK",
+                "Check for cell damage or solder joint failure",
+                "Replace panel if hot spot confirmed",
+                "Inspect adjacent panels for cascade risk"
+            ],
+            "detection_method": "IR thermal imaging + RGB discoloration analysis"
+        },
+        {
+            "defect": "Bird Droppings",
+            "category": "surface",
+            "dataset_source": "UAV Solar Panel Dust (Roboflow)",
+            "confidence_range": [
+                0.90,
+                0.98
+            ],
+            "severity": "Medium",
+            "efficiency_loss_pct": [
+                5,
+                12
+            ],
+            "daily_rupee_loss": [
+                40,
+                100
+            ],
+            "symptoms": "Localized opaque white/brown deposits, often on edges",
+            "action": [
+                "Clean affected area with warm water (not cold — thermal shock risk)",
+                "Install bird deterrent spikes on mounting rails",
+                "Apply anti-perch wire",
+                "Schedule regular cleaning after nesting season"
+            ],
+            "detection_method": "RGB segmentation"
+        },
+        {
+            "defect": "Delamination",
+            "category": "structural",
+            "dataset_source": "IR + RGB Solar Panel Faults (Kaggle)",
+            "confidence_range": [
+                0.72,
+                0.88
+            ],
+            "severity": "High",
+            "efficiency_loss_pct": [
+                8,
+                18
+            ],
+            "daily_rupee_loss": [
+                65,
+                150
+            ],
+            "symptoms": "Bubbles or cloudy areas between glass and backsheet, moisture ingress",
+            "action": [
+                "Schedule replacement — structural integrity compromised",
+                "Monitor for continued degradation",
+                "Check warranty coverage (manufacturing defect)",
+                "Reduce electrical load on affected string"
+            ],
+            "detection_method": "RGB + UV fluorescence"
+        },
+        {
+            "defect": "PID (Potential-Induced Degradation)",
+            "category": "electrical",
+            "dataset_source": "IR + RGB Solar Panel Faults (Kaggle)",
+            "confidence_range": [
+                0.70,
+                0.85
+            ],
+            "severity": "High",
+            "efficiency_loss_pct": [
+                10,
+                30
+            ],
+            "daily_rupee_loss": [
+                85,
+                250
+            ],
+            "symptoms": "Consistent power loss across modules, no visible damage, uneven cell brightness in EL imaging",
+            "action": [
+                "Check grounding configuration",
+                "Install PID recovery box (overnight reverse voltage)",
+                "Replace ground fault on negative terminal",
+                "Consider module-level power electronics (MLPE)"
+            ],
+            "detection_method": "IV curve analysis + EL imaging"
+        },
+        {
+            "defect": "Vegetation Shading",
+            "category": "environmental",
+            "dataset_source": "Custom RGB dataset",
+            "confidence_range": [
+                0.88,
+                0.97
+            ],
+            "severity": "Medium",
+            "efficiency_loss_pct": [
+                5,
+                25
+            ],
+            "daily_rupee_loss": [
+                40,
+                210
+            ],
+            "symptoms": "Partial shadow from nearby trees, grass growth reaching panel edge",
+            "action": [
+                "Trim vegetation immediately",
+                "Schedule quarterly vegetation management",
+                "Consider panel height adjustment",
+                "Install weed barrier beneath array"
+            ],
+            "detection_method": "RGB shadow mapping + temporal analysis"
+        },
+        {
+            "defect": "Normal (Clean)",
+            "category": "none",
+            "dataset_source": "All datasets",
+            "confidence_range": [
+                0.92,
+                0.99
+            ],
+            "severity": "None",
+            "efficiency_loss_pct": [
+                0,
+                0
+            ],
+            "daily_rupee_loss": [
+                0,
+                0
+            ],
+            "symptoms": "No visible defects",
+            "action": [
+                "Panel is in good condition ✓",
+                "Next inspection in 30 days"
+            ],
+            "detection_method": "Multi-modal clean baseline"
+        }
+    ],
+    "outbreak_radar": {
+        "recent_outbreaks_khordha": [
+            {
+                "disease": "Fall Armyworm",
+                "crop": "Maize",
+                "date": "2026-03-05",
+                "distance_km": 12,
+                "direction": "NW",
+                "severity": "Severe",
+                "wind_risk": "HIGH — strong NW winds forecasted"
+            },
+            {
+                "disease": "Late Blight",
+                "crop": "Tomato",
+                "date": "2026-03-02",
+                "distance_km": 8,
+                "direction": "SE",
+                "severity": "Moderate",
+                "wind_risk": "LOW — no rain expected"
+            },
+            {
+                "disease": "Rice Blast",
+                "crop": "Rice",
+                "date": "2026-02-28",
+                "distance_km": 25,
+                "direction": "E",
+                "severity": "Mild",
+                "wind_risk": "MODERATE — humid conditions"
+            }
+        ]
+    },
+    "weather_disease_risk": {
+        "high_humidity_gt80": {
+            "risk_crops": [
+                "Tomato",
+                "Potato",
+                "Grape"
+            ],
+            "risk_diseases": [
+                "Late Blight",
+                "Downy Mildew"
+            ],
+            "alert_level": "HIGH"
+        },
+        "warm_humid": {
+            "risk_crops": [
+                "Rice",
+                "Wheat",
+                "Cotton"
+            ],
+            "risk_diseases": [
+                "Blast",
+                "Rust",
+                "Bollworm"
+            ],
+            "alert_level": "MODERATE"
+        },
+        "cool_dry": {
+            "risk_crops": [
+                "Apple",
+                "Cherry"
+            ],
+            "risk_diseases": [
+                "Powdery Mildew"
+            ],
+            "alert_level": "LOW"
+        },
+        "monsoon": {
+            "risk_crops": [
+                "Cotton",
+                "Citrus",
+                "Turmeric"
+            ],
+            "risk_diseases": [
+                "Bacterial Blight",
+                "Rhizome Rot",
+                "Canker"
+            ],
+            "alert_level": "HIGH"
+        }
+    }
+}

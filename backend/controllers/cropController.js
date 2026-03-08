@@ -1,33 +1,6 @@
 const Farm = require("../models/Farm");
 const Crop = require("../models/Crop");
-
-// Crop recommendation logic (rule-based for pilot)
-const getCropRecommendations = (soilType, rainfall, season, location) => {
-  const recommendations = [];
-
-  // Rule-based recommendations
-  if (soilType === "loamy" && rainfall > 500) {
-    recommendations.push(
-      { name: "Tomato", yield: 250, revenue: 500000, waterReq: "Medium", shadeTolerance: "High" },
-      { name: "Turmeric", yield: 180, revenue: 540000, waterReq: "Medium", shadeTolerance: "High" },
-      { name: "Rice", yield: 300, revenue: 450000, waterReq: "High", shadeTolerance: "Medium" }
-    );
-  } else if (soilType === "sandy" || rainfall < 500) {
-    recommendations.push(
-      { name: "Millet", yield: 150, revenue: 225000, waterReq: "Low", shadeTolerance: "High" },
-      { name: "Wheat", yield: 200, revenue: 400000, waterReq: "Medium", shadeTolerance: "Medium" },
-      { name: "Groundnut", yield: 120, revenue: 360000, waterReq: "Low", shadeTolerance: "Medium" }
-    );
-  } else {
-    recommendations.push(
-      { name: "Wheat", yield: 200, revenue: 400000, waterReq: "Medium", shadeTolerance: "Medium" },
-      { name: "Millet", yield: 150, revenue: 225000, waterReq: "Low", shadeTolerance: "High" },
-      { name: "Soybean", yield: 180, revenue: 360000, waterReq: "Medium", shadeTolerance: "High" }
-    );
-  }
-
-  return recommendations;
-};
+const cropRecommender = require("../mlModels/cropRecommender");
 
 // @desc    Get crop recommendations
 // @route   POST /api/crop/recommend
@@ -44,19 +17,25 @@ exports.getRecommendations = async (req, res) => {
       });
     }
 
-    const recommendations = getCropRecommendations(
-      soilType || farm.soilType,
-      rainfall || 600,
-      season || "kharif",
-      farm.location
-    );
+    const conditions = {
+      soilType: soilType || farm.soilType || 'loamy',
+      rainfall: rainfall || 600,
+      season: season || 'kharif',
+      district: farm.location?.district || 'Khordha',
+      shadowCoverage: 40,
+    };
+
+    const result = cropRecommender.recommend(conditions);
 
     res.json({
       success: true,
       data: {
-        recommendations,
+        recommendations: result.recommendations,
+        topPick: result.topPick,
+        modelVersion: result.modelVersion,
+        algorithm: result.algorithm,
         farmDetails: {
-          soilType: farm.soilType,
+          soilType: conditions.soilType,
           size: farm.farmSize,
           solarInstalled: farm.solarInstalled
         },
@@ -75,6 +54,7 @@ exports.getRecommendations = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Add new crop
 // @route   POST /api/crop

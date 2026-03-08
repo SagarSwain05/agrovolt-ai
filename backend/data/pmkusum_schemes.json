@@ -1,0 +1,134 @@
+{
+    "schemes": [
+        {
+            "id": "pmkusum_b",
+            "name": "PM-KUSUM Component B",
+            "fullName": "Pradhan Mantri Kisan Urja Suraksha evam Utthaan Mahabhiyan — Component B",
+            "ministry": "Ministry of New and Renewable Energy (MNRE)",
+            "description": "Installation of standalone solar-powered agricultural pumps of capacity up to 7.5 HP for individual farmers",
+            "subsidy_percentage": 60,
+            "max_amount_inr": 72000,
+            "states_covered": [
+                "All States"
+            ],
+            "eligibility": {
+                "land_ownership_min_acres": 1,
+                "existing_pump_required": true,
+                "max_pump_hp": 7.5,
+                "farmer_type": [
+                    "Small",
+                    "Marginal",
+                    "SC/ST"
+                ],
+                "not_previously_availed": true
+            },
+            "documents_required": [
+                "Aadhaar Card",
+                "Land Records (ROR/Patta)",
+                "Bank Account Details",
+                "Existing Pump Details",
+                "Passport Photo"
+            ],
+            "application_url": "https://pmkusum.mnre.gov.in",
+            "deadline": "2026-12-31",
+            "status": "active"
+        },
+        {
+            "id": "pmkusum_a",
+            "name": "PM-KUSUM Component A",
+            "fullName": "Solar Power Plants on Barren/Fallow Land",
+            "ministry": "Ministry of New and Renewable Energy (MNRE)",
+            "description": "Setting up of 10,000 MW of decentralized grid-connected renewable power plants of individual plant capacity up to 2 MW on barren/fallow land",
+            "subsidy_percentage": 30,
+            "max_amount_inr": 350000,
+            "states_covered": [
+                "All States"
+            ],
+            "eligibility": {
+                "land_ownership_min_acres": 5,
+                "land_type": [
+                    "barren",
+                    "fallow"
+                ],
+                "max_plant_capacity_mw": 2,
+                "farmer_type": [
+                    "All"
+                ],
+                "grid_connection_required": true
+            },
+            "documents_required": [
+                "Aadhaar Card",
+                "Land Records",
+                "Grid Connection Certificate",
+                "Bank Details"
+            ],
+            "application_url": "https://pmkusum.mnre.gov.in",
+            "deadline": "2026-12-31",
+            "status": "active"
+        },
+        {
+            "id": "pmkusum_c",
+            "name": "PM-KUSUM Component C",
+            "fullName": "Solarisation of Grid-connected Agricultural Pumps",
+            "ministry": "Ministry of New and Renewable Energy (MNRE)",
+            "description": "Solarisation of existing grid-connected agricultural pumps, with facility for selling surplus solar power to DISCOM",
+            "subsidy_percentage": 50,
+            "max_amount_inr": 120000,
+            "states_covered": [
+                "All States"
+            ],
+            "eligibility": {
+                "existing_grid_pump_required": true,
+                "max_pump_hp": 10,
+                "farmer_type": [
+                    "All"
+                ],
+                "discom_agreement_required": true
+            },
+            "documents_required": [
+                "Aadhaar Card",
+                "Electricity Bill",
+                "Pump Registration",
+                "Bank Details"
+            ],
+            "application_url": "https://pmkusum.mnre.gov.in",
+            "deadline": "2026-12-31",
+            "status": "active"
+        },
+        {
+            "id": "agrivoltaic_pilot",
+            "name": "ICAR Agrivoltaic Research Pilot",
+            "fullName": "Agrivoltaic Systems — National Research & Demonstration",
+            "ministry": "Indian Council of Agricultural Research (ICAR)",
+            "description": "Research and demonstration of dual-use agrivoltaic systems combining solar energy generation with crop cultivation",
+            "subsidy_percentage": 50,
+            "max_amount_inr": 150000,
+            "states_covered": [
+                "Odisha",
+                "Rajasthan",
+                "Gujarat",
+                "Maharashtra",
+                "Karnataka",
+                "Tamil Nadu"
+            ],
+            "eligibility": {
+                "existing_solar_installation": true,
+                "growing_crops_under_panels": true,
+                "data_sharing_agreement": true,
+                "min_panel_capacity_kw": 3,
+                "farmer_type": [
+                    "All"
+                ]
+            },
+            "documents_required": [
+                "Aadhaar Card",
+                "Solar Installation Certificate",
+                "Crop Records",
+                "Data Sharing Agreement"
+            ],
+            "application_url": "https://icar.org.in/agrivoltaic",
+            "deadline": "2026-09-30",
+            "status": "active"
+        }
+    ]
+}

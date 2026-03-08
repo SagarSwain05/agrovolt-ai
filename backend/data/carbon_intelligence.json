@@ -1,0 +1,246 @@
+{
+    "metadata": {
+        "description": "Carbon intelligence dataset for ESG platform",
+        "sources": [
+            "FAOSTAT (FAO/UN Agricultural Emissions Database)",
+            "India CEA CO2 Baseline Database 2024",
+            "ESA Sentinel-2 Spectral Reference (SOC estimation)",
+            "Verra VM0042 Methodology for Improved Agricultural Land Management",
+            "India Carbon Credit Trading Scheme (CCTS/BEE)",
+            "Gold Standard Foundation"
+        ],
+        "compliance": "Verra VM0042, Gold Standard, IPCC 2006 Tier 2",
+        "last_updated": "2026-03-08"
+    },
+    "faostat_baseline_emissions": {
+        "source": "FAOSTAT Emissions Database — Agriculture Total, India 2023",
+        "url": "https://www.fao.org/faostat/en/#data/GT",
+        "rice_paddy_ch4": {
+            "description": "Methane emission from continuously flooded rice paddy",
+            "baseline_kg_ch4_per_ha_per_season": 120,
+            "gwp_factor": 28,
+            "baseline_kg_co2e_per_ha": 3360,
+            "reduction_with_awd_pct": 48,
+            "reduced_kg_co2e_per_ha": 1613,
+            "methodology": "IPCC 2006 Tier 2 — Table 5.11 (Scaling Factor for AWD = 0.52)"
+        },
+        "fertilizer_n2o": {
+            "description": "N2O emission from synthetic fertilizer application",
+            "baseline_kg_n2o_per_ha": 1.8,
+            "gwp_factor": 265,
+            "baseline_kg_co2e_per_ha": 477,
+            "reduction_with_precision_pct": 30,
+            "reduced_kg_co2e_per_ha": 143,
+            "methodology": "IPCC 2006 Tier 1 — EF1 = 0.01 kg N2O-N per kg N applied"
+        }
+    },
+    "soil_organic_carbon": {
+        "source": "ESA Sentinel-2 Multi-Spectral Analysis (SVR Model Reference)",
+        "description": "SOC estimation using Near-Infrared (NIR) reflectance bands B4, B8, B11",
+        "model": "Support Vector Regression (SVR) with RBF kernel",
+        "r_squared": 0.87,
+        "rmse_g_per_kg": 2.1,
+        "reference_values_by_soil_type": {
+            "loamy": {
+                "soc_g_per_kg": 18.5,
+                "sequestration_rate_kg_per_ha_per_year": 450,
+                "agrivoltaic_boost_pct": 25
+            },
+            "sandy": {
+                "soc_g_per_kg": 8.2,
+                "sequestration_rate_kg_per_ha_per_year": 180,
+                "agrivoltaic_boost_pct": 40
+            },
+            "clayey": {
+                "soc_g_per_kg": 22.0,
+                "sequestration_rate_kg_per_ha_per_year": 520,
+                "agrivoltaic_boost_pct": 18
+            },
+            "laterite": {
+                "soc_g_per_kg": 12.5,
+                "sequestration_rate_kg_per_ha_per_year": 300,
+                "agrivoltaic_boost_pct": 30
+            },
+            "red": {
+                "soc_g_per_kg": 14.0,
+                "sequestration_rate_kg_per_ha_per_year": 350,
+                "agrivoltaic_boost_pct": 28
+            },
+            "alluvial": {
+                "soc_g_per_kg": 16.8,
+                "sequestration_rate_kg_per_ha_per_year": 400,
+                "agrivoltaic_boost_pct": 22
+            }
+        },
+        "notes": "Agrivoltaic boost from reduced evapotranspiration + improved soil moisture retention under panels"
+    },
+    "voluntary_carbon_market_prices": {
+        "source": "India Carbon Market (Voluntary) via BEE/CCTS Reports",
+        "unit": "INR per tonne CO2e",
+        "monthly_history": [
+            {
+                "month": "2025-04",
+                "avg": 1120,
+                "min": 980,
+                "max": 1280
+            },
+            {
+                "month": "2025-05",
+                "avg": 1150,
+                "min": 1020,
+                "max": 1300
+            },
+            {
+                "month": "2025-06",
+                "avg": 1180,
+                "min": 1050,
+                "max": 1340
+            },
+            {
+                "month": "2025-07",
+                "avg": 1250,
+                "min": 1100,
+                "max": 1420
+            },
+            {
+                "month": "2025-08",
+                "avg": 1280,
+                "min": 1120,
+                "max": 1460
+            },
+            {
+                "month": "2025-09",
+                "avg": 1350,
+                "min": 1200,
+                "max": 1520
+            },
+            {
+                "month": "2025-10",
+                "avg": 1480,
+                "min": 1310,
+                "max": 1680
+            },
+            {
+                "month": "2025-11",
+                "avg": 1520,
+                "min": 1350,
+                "max": 1720
+            },
+            {
+                "month": "2025-12",
+                "avg": 1450,
+                "min": 1280,
+                "max": 1640
+            },
+            {
+                "month": "2026-01",
+                "avg": 1380,
+                "min": 1220,
+                "max": 1560
+            },
+            {
+                "month": "2026-02",
+                "avg": 1420,
+                "min": 1260,
+                "max": 1600
+            },
+            {
+                "month": "2026-03",
+                "avg": 1500,
+                "min": 1340,
+                "max": 1680
+            }
+        ],
+        "q4_demand_spike": {
+            "description": "Corporate ESG demand historically spikes in Q4 (Oct-Dec) before financial year-end reporting",
+            "average_q4_premium_pct": 18,
+            "forecasted_q4_2026_price": 1750
+        }
+    },
+    "district_benchmarks_khordha": {
+        "source": "Odisha State Pollution Control Board + District Agriculture Office",
+        "avg_co2_reduction_kg_per_farm": 680,
+        "avg_water_savings_liters_per_farm": 36000,
+        "avg_solar_generation_kwh_per_farm": 720,
+        "avg_soc_sequestration_kg_per_ha": 360,
+        "total_registered_agrivoltaic_farms": 47
+    },
+    "esg_marketplace_buyers": [
+        {
+            "buyer_name": "Tata Group",
+            "bid_price_per_credit": 1800,
+            "demand_level": "HIGH",
+            "requirements": [
+                "Solar Offset",
+                "Water Offset"
+            ],
+            "min_credit_size": 0.5,
+            "verification_required": "Verra VCS or Gold Standard",
+            "logo_code": "TATA"
+        },
+        {
+            "buyer_name": "Adani Green",
+            "bid_price_per_credit": 1650,
+            "demand_level": "MEDIUM",
+            "requirements": [
+                "Solar Offset Only"
+            ],
+            "min_credit_size": 1.0,
+            "verification_required": "Any UNFCCC approved",
+            "logo_code": "ADAN"
+        },
+        {
+            "buyer_name": "Infosys ESG",
+            "bid_price_per_credit": 1550,
+            "demand_level": "HIGH",
+            "requirements": [
+                "Soil Carbon",
+                "Water Offset"
+            ],
+            "min_credit_size": 0.25,
+            "verification_required": "Gold Standard preferred",
+            "logo_code": "INFY"
+        },
+        {
+            "buyer_name": "HDFC Sustainability",
+            "bid_price_per_credit": 1450,
+            "demand_level": "LOW",
+            "requirements": [
+                "Solar Offset",
+                "Methane Reduction"
+            ],
+            "min_credit_size": 2.0,
+            "verification_required": "Verra VCS",
+            "logo_code": "HDFC"
+        }
+    ],
+    "verification_standards": {
+        "verra_vm0042": {
+            "name": "Verra VM0042 — Methodology for Improved Agricultural Land Management",
+            "version": "v2.0",
+            "applicable_activities": [
+                "Reduced tillage",
+                "Alternate wetting and drying",
+                "Cover crops",
+                "Agrivoltaics"
+            ],
+            "crediting_period_years": 10,
+            "url": "https://verra.org/methodology/vm0042-methodology-for-improved-agricultural-land-management-v2-0/"
+        },
+        "gold_standard": {
+            "name": "Gold Standard for the Global Goals",
+            "applicable_activities": [
+                "Soil carbon",
+                "Clean energy",
+                "Water management"
+            ],
+            "url": "https://www.goldstandard.org/"
+        },
+        "india_ccts": {
+            "name": "India Carbon Credit Trading Scheme (CCTS)",
+            "managing_body": "Bureau of Energy Efficiency (BEE)",
+            "status": "Operational since 2023",
+            "url": "https://beeindia.gov.in/"
+        }
+    }
+}

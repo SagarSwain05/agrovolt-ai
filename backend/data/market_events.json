@@ -1,0 +1,179 @@
+{
+    "metadata": {
+        "description": "Exogenous variables affecting agricultural commodity prices in Odisha",
+        "sources": [
+            "IMD Weather Data",
+            "Govt Festival Calendar",
+            "IOCL Diesel Rates"
+        ]
+    },
+    "festivals": [
+        {
+            "name": "Holi",
+            "date": "2026-03-17",
+            "impact": "demand_spike",
+            "multiplier": 1.12,
+            "crops_affected": [
+                "Tomato",
+                "Turmeric",
+                "Groundnut"
+            ],
+            "description": "Demand spike for fresh vegetables & dry fruits"
+        },
+        {
+            "name": "Raja Festival",
+            "date": "2026-06-14",
+            "impact": "demand_spike",
+            "multiplier": 1.08,
+            "crops_affected": [
+                "Rice",
+                "Tomato"
+            ],
+            "description": "Odisha harvest festival — sweet & vegetable demand up"
+        },
+        {
+            "name": "Nuakhai",
+            "date": "2026-09-05",
+            "impact": "demand_spike",
+            "multiplier": 1.15,
+            "crops_affected": [
+                "Rice",
+                "Millet"
+            ],
+            "description": "Western Odisha food festival — rice & grain demand peaks"
+        },
+        {
+            "name": "Dussehra",
+            "date": "2026-10-02",
+            "impact": "demand_spike",
+            "multiplier": 1.10,
+            "crops_affected": [
+                "Tomato",
+                "Groundnut",
+                "Soybean"
+            ],
+            "description": "Festive cooking drives vegetable demand"
+        },
+        {
+            "name": "Diwali",
+            "date": "2026-10-20",
+            "impact": "demand_spike",
+            "multiplier": 1.18,
+            "crops_affected": [
+                "Groundnut",
+                "Soybean",
+                "Turmeric",
+                "Rice"
+            ],
+            "description": "Bulk buying season — dry fruits, oil seeds, spices"
+        },
+        {
+            "name": "Pongal/Makar Sankranti",
+            "date": "2027-01-14",
+            "impact": "demand_spike",
+            "multiplier": 1.10,
+            "crops_affected": [
+                "Rice",
+                "Turmeric",
+                "Groundnut"
+            ],
+            "description": "Harvest celebration — rice & turmeric demand"
+        }
+    ],
+    "weather_events": [
+        {
+            "type": "heavy_rain",
+            "start": "2025-07-15",
+            "end": "2025-07-22",
+            "severity": "high",
+            "impact": "supply_drop",
+            "multiplier": 1.25,
+            "description": "IMD Red Alert: Heavy rainfall disrupted transport in coastal Odisha"
+        },
+        {
+            "type": "cyclone_warning",
+            "start": "2025-10-28",
+            "end": "2025-11-02",
+            "severity": "severe",
+            "impact": "supply_drop",
+            "multiplier": 1.35,
+            "description": "Cyclone Dana approach — mandi closures, logistics halt"
+        },
+        {
+            "type": "drought_stress",
+            "start": "2025-05-01",
+            "end": "2025-05-20",
+            "severity": "moderate",
+            "impact": "supply_drop",
+            "multiplier": 1.15,
+            "description": "Below-normal rainfall forecast in Kalahandi-Bolangir belt"
+        },
+        {
+            "type": "cold_wave",
+            "start": "2026-01-05",
+            "end": "2026-01-15",
+            "severity": "moderate",
+            "impact": "mixed",
+            "multiplier": 1.08,
+            "description": "IMD cold wave advisory — vegetable damage in western Odisha"
+        },
+        {
+            "type": "heavy_rain",
+            "start": "2026-03-12",
+            "end": "2026-03-14",
+            "severity": "moderate",
+            "impact": "supply_drop",
+            "multiplier": 1.12,
+            "description": "Pre-monsoon showers expected — may disrupt transport"
+        }
+    ],
+    "diesel_timeline": [
+        {
+            "date": "2025-03-01",
+            "rate": 92.50
+        },
+        {
+            "date": "2025-06-01",
+            "rate": 93.80
+        },
+        {
+            "date": "2025-09-01",
+            "rate": 94.20
+        },
+        {
+            "date": "2025-12-01",
+            "rate": 94.50
+        },
+        {
+            "date": "2026-01-01",
+            "rate": 94.72
+        },
+        {
+            "date": "2026-03-01",
+            "rate": 94.72
+        }
+    ],
+    "upcoming_events_next_30_days": [
+        {
+            "date": "2026-03-12",
+            "type": "weather",
+            "icon": "🌧",
+            "label": "Rain Alert",
+            "impact_pct": 12
+        },
+        {
+            "date": "2026-03-17",
+            "type": "festival",
+            "icon": "🎉",
+            "label": "Holi",
+            "impact_pct": 12
+        },
+        {
+            "date": "2026-03-20",
+            "type": "fuel",
+            "icon": "⛽",
+            "label": "Diesel Review",
+            "impact_pct": 3
+        }
+    ]
+}

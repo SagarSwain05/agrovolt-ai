@@ -1,0 +1,73 @@
+{
+    "grid_emission_factor_kg_per_kwh": 0.82,
+    "source": "Central Electricity Authority (CEA), CO2 Baseline Database, 2024",
+    "methodology": "IPCC 2006 Guidelines for National Greenhouse Gas Inventories",
+    "factors": {
+        "solar_generation": {
+            "description": "CO2 avoided per kWh of solar energy generated",
+            "factor_kg_co2": 0.82,
+            "unit": "kg CO2/kWh",
+            "notes": "Based on India weighted average grid emission factor"
+        },
+        "water_savings": {
+            "description": "CO2 avoided per 1000L of water saved through agrivoltaic microclimate",
+            "factor_kg_co2": 0.344,
+            "unit": "kg CO2/1000L",
+            "notes": "Energy for pumping + treatment (0.42 kWh/m3 x 0.82 kg/kWh)"
+        },
+        "bio_cooling": {
+            "description": "Additional CO2 offset from bio-cooling effect on panels",
+            "factor_kg_co2_per_degree": 0.015,
+            "unit": "kg CO2/°C reduction/day",
+            "notes": "Based on 3% efficiency gain per °C reduction"
+        },
+        "crop_carbon_sequestration": {
+            "description": "CO2 sequestered by crops per hectare per season",
+            "factors_by_crop": {
+                "rice": 2.8,
+                "tomato": 1.5,
+                "turmeric": 3.2,
+                "ginger": 2.9,
+                "spinach": 1.2,
+                "millet": 2.1,
+                "groundnut": 2.4,
+                "soybean": 2.6
+            },
+            "unit": "tonnes CO2/hectare/season"
+        },
+        "methane_reduction": {
+            "description": "CH4 reduction from Alternate Wetting and Drying (AWD) irrigation",
+            "baseline_kg_ch4_per_ha": 120,
+            "awd_scaling_factor": 0.52,
+            "gwp_ch4": 28,
+            "unit": "kg CO2e/ha/season",
+            "methodology": "IPCC 2006 Tier 2, Table 5.11",
+            "notes": "AWD reduces methane by 48% compared to continuous flooding"
+        },
+        "soc_estimation": {
+            "description": "Soil Organic Carbon sequestration estimation parameters",
+            "method": "SVR on ESA Sentinel-2 NIR bands (B4, B8, B11)",
+            "agrivoltaic_boost_factor": 1.25,
+            "unit": "kg C/ha/year",
+            "notes": "Panel shading reduces evapotranspiration, increasing SOC accumulation by 25%"
+        }
+    },
+    "carbon_credit_pricing": {
+        "voluntary_market_india": {
+            "min_inr_per_credit": 800,
+            "max_inr_per_credit": 2500,
+            "avg_inr_per_credit": 1500,
+            "unit": "INR per tonne CO2",
+            "source": "India Carbon Market, 2024"
+        },
+        "compliance_market": {
+            "estimated_price_inr": 2000,
+            "notes": "India Carbon Credit Trading Scheme (CCTS) expected prices"
+        }
+    },
+    "verification_standards": [
+        "Gold Standard",
+        "Verified Carbon Standard (VCS/Verra)",
+        "Indian Carbon Market (BEE)"
+    ]
+}

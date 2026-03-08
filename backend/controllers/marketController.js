@@ -1,25 +1,8 @@
 const MarketData = require("../models/MarketData");
 const Farm = require("../models/Farm");
+const priceForecaster = require("../mlModels/priceForecaster");
 
-// Mock market data (replace with Agmarknet API integration)
-const generateMarketData = (cropName, state) => {
-  const basePrices = {
-    "Tomato": 2500,
-    "Rice": 1800,
-    "Wheat": 2000,
-    "Millet": 1500,
-    "Turmeric": 8000,
-    "Soybean": 3500,
-    "Groundnut": 5000
-  };
-
-  const basePrice = basePrices[cropName] || 2000;
-  const variation = (Math.random() - 0.5) * 400; // ±200 variation
-
-  return Math.round(basePrice + variation);
-};
-
-// @desc    Get market prices
+// @desc    Get market prices with net arbitrage
 // @route   GET /api/market/prices
 // @access  Private
 exports.getMarketPrices = async (req, res) => {
@@ -34,119 +17,68 @@ exports.getMarketPrices = async (req, res) => {
       });
     }
 
-    const state = farm.location.state || "Odisha";
-    const district = farm.location.district || "Khordha";
+    const district = farm.location?.district || "Khordha";
+    const crop = cropName || "Tomato";
 
-    // Get or generate market data for nearby mandis
-    const mandis = [
-      { name: `${district} Mandi`, distance: 5 },
-      { name: "Regional Market", distance: 15 },
-      { name: "District Hub", distance: 25 },
-      { name: "State Market", distance: 45 },
-      { name: "Central Market", distance: 60 }
-    ];
+    // ML-based mandi price lookup with net arbitrage
+    const prices = priceForecaster.getMandiPrices(crop, district);
 
-    const prices = mandis.map(mandi => ({
-      mandi: mandi.name,
-      distance: mandi.distance,
-      price: generateMarketData(cropName || "Tomato", state),
-      trend: Math.random() > 0.5 ? "up" : "down",
-      demand: ["low", "medium", "high"][Math.floor(Math.random() * 3)],
-      lastUpdated: new Date()
-    }));
-
-    // Sort by price (highest first)
-    prices.sort((a, b) => b.price - a.price);
-
-    // Calculate best selling window
     const avgPrice = prices.reduce((sum, p) => sum + p.price, 0) / prices.length;
-    const bestPrice = prices[0].price;
-    const priceAdvantage = ((bestPrice - avgPrice) / avgPrice * 100).toFixed(1);
+    const bestNetProfit = prices[0]?.netProfit || 0;
+    const bestMandi = prices[0]?.mandi || "Khordha Mandi";
 
     res.json({
       success: true,
       data: {
-        crop: cropName || "Tomato",
+        crop,
         prices,
         analysis: {
           avgPrice: Math.round(avgPrice),
-          bestPrice,
-          bestMandi: prices[0].mandi,
-          priceAdvantage: `${priceAdvantage}%`,
-          recommendation: bestPrice > avgPrice * 1.1 
-            ? `Sell at ${prices[0].mandi} for ${priceAdvantage}% better price`
-            : "Prices are stable across markets"
-        },
-        forecast: {
-          next7Days: "Prices expected to rise by 5-8%",
-          next30Days: "Seasonal demand increasing",
-          confidence: "Medium"
+          bestPrice: prices[0]?.price || 0,
+          bestMandi,
+          bestNetProfit,
+          transportCostRate: priceForecaster.transportCostPerKmQ,
+          recommendation: `Best net profit at ${bestMandi} (₹${bestNetProfit}/q after transport)`
         }
       }
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// @desc    Get price trends
+// @desc    Get price trends (historical + forecast)
 // @route   GET /api/market/trends
 // @access  Private
 exports.getPriceTrends = async (req, res) => {
   try {
-    const { cropName, days = 30 } = req.query;
+    const { cropName } = req.query;
+    const crop = cropName || "Tomato";
 
-    // Generate mock historical data
-    const trends = [];
-    const basePrice = 2000;
-    
-    for (let i = parseInt(days); i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      
-      const seasonalFactor = Math.sin((i / 30) * Math.PI) * 200;
-      const randomFactor = (Math.random() - 0.5) * 100;
-      const price = basePrice + seasonalFactor + randomFactor;
-      
-      trends.push({
-        date: date.toISOString().split('T')[0],
-        price: Math.round(price),
-        volume: Math.round(1000 + Math.random() * 500)
-      });
+    const result = priceForecaster.forecast(crop, 14);
+    if (result.error) {
+      return res.status(400).json({ success: false, message: result.error });
     }
-
-    // Calculate trend direction
-    const recentAvg = trends.slice(-7).reduce((sum, t) => sum + t.price, 0) / 7;
-    const olderAvg = trends.slice(0, 7).reduce((sum, t) => sum + t.price, 0) / 7;
-    const trendDirection = recentAvg > olderAvg ? "increasing" : "decreasing";
-    const trendPercentage = ((recentAvg - olderAvg) / olderAvg * 100).toFixed(1);
 
     res.json({
       success: true,
       data: {
-        crop: cropName || "Tomato",
-        trends,
-        analysis: {
-          direction: trendDirection,
-          change: `${trendPercentage}%`,
-          currentPrice: trends[trends.length - 1].price,
-          avgPrice: Math.round(trends.reduce((sum, t) => sum + t.price, 0) / trends.length),
-          recommendation: trendDirection === "increasing" 
-            ? "Hold for better prices in coming days"
-            : "Consider selling soon before prices drop further"
-        }
+        crop,
+        history: result.history,
+        forecast: result.forecast,
+        signal: result.signal,
+        confidence: result.confidence,
+        pctChange: result.pctChange,
+        recommendation: result.recommendation,
+        upcomingEvents: result.upcomingEvents,
+        algorithm: result.algorithm,
+        dataSource: result.dataSource,
       }
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -156,59 +88,47 @@ exports.getPriceTrends = async (req, res) => {
 exports.getSellingRecommendation = async (req, res) => {
   try {
     const { cropName, quantity } = req.query;
-    const farm = await Farm.findOne({ userId: req.user._id });
+    const crop = cropName || "Tomato";
+    const qty = parseInt(quantity) || 10;
 
-    if (!farm) {
-      return res.status(404).json({
-        success: false,
-        message: "Farm not found"
-      });
+    const intel = priceForecaster.getFullIntelligence(crop);
+    if (intel.error) {
+      return res.status(400).json({ success: false, message: intel.error });
     }
-
-    const currentPrice = generateMarketData(cropName || "Tomato", farm.location.state);
-    const projectedPrice = currentPrice * 1.08; // 8% increase projected
-    
-    const currentRevenue = currentPrice * (quantity || 10);
-    const projectedRevenue = projectedPrice * (quantity || 10);
-    const potentialGain = projectedRevenue - currentRevenue;
 
     res.json({
       success: true,
       data: {
-        crop: cropName || "Tomato",
-        quantity: quantity || 10,
+        crop,
+        quantity: qty,
         current: {
-          price: currentPrice,
-          revenue: Math.round(currentRevenue),
+          price: intel.currentPrice,
+          revenue: intel.currentPrice * qty,
           timing: "Immediate"
         },
         projected: {
-          price: Math.round(projectedPrice),
-          revenue: Math.round(projectedRevenue),
-          timing: "7-10 days",
-          gain: Math.round(potentialGain)
+          price: intel.forecast[Math.min(6, intel.forecast.length - 1)]?.price || intel.currentPrice,
+          revenue: intel.projectedRevenue,
+          timing: `${intel.waitDays} days`,
+          gain: intel.revenueDifference
         },
         recommendation: {
-          action: potentialGain > currentRevenue * 0.05 ? "Wait" : "Sell Now",
-          reason: potentialGain > currentRevenue * 0.05 
-            ? `Waiting could earn you ₹${Math.round(potentialGain)} more`
-            : "Current prices are optimal",
-          confidence: "Medium",
-          riskFactor: "Low"
+          action: intel.signal,
+          waitDays: intel.waitDays,
+          reason: intel.recommendation,
+          confidence: `${intel.confidence}%`,
+          riskFactor: intel.pctChange > 5 ? "Medium" : "Low"
         },
-        factors: {
-          demand: "High",
-          supply: "Medium",
-          weather: "Favorable",
-          festival: "Upcoming festival may increase demand"
-        }
+        bestMandi: {
+          name: intel.bestMandi,
+          netProfit: intel.bestNetProfit,
+        },
+        upcomingEvents: intel.upcomingEvents,
+        msp: intel.msp,
       }
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

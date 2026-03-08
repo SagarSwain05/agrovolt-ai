@@ -18,6 +18,7 @@ app.use("/api/solar", require("./routes/solarRoutes"));
 app.use("/api/disease", require("./routes/diseaseRoutes"));
 app.use("/api/carbon", require("./routes/carbonRoutes"));
 app.use("/api/market", require("./routes/marketRoutes"));
+app.use("/api/weather", require("./routes/weatherRoutes"));
 
 // MongoDB Connection
 mongoose
