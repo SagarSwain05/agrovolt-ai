@@ -47,17 +47,20 @@ exports.register = async (req, res) => {
     });
 
     // Create farm if details provided
-    if (farmName && farmSize && location) {
+    if (farmSize || farmName || location) {
+      const loc = location || {};
+      const actualFarmName = farmName || `${name}'s Farm`;
+      const actualFarmSize = farmSize || 2; // Default size if empty
       const farm = await Farm.create({
         userId: user._id,
-        farmName,
-        farmSize,
+        farmName: actualFarmName,
+        farmSize: actualFarmSize,
         location: {
-          latitude: location.latitude || 20.5937,
-          longitude: location.longitude || 78.9629,
-          address: location.address || "",
-          district: location.district || "",
-          state: location.state || ""
+          latitude: loc.latitude || 20.5937,
+          longitude: loc.longitude || 78.9629,
+          address: loc.address || "",
+          district: loc.district || "",
+          state: loc.state || ""
         }
       });
 

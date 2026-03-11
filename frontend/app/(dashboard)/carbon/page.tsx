@@ -15,13 +15,11 @@ import {
 // CLIENT-SIDE CARBON INTELLIGENCE ENGINE
 // Same logic as backend carbonIntelligence.js
 // ══════════════════════════════════════════════
-const CURRENT_CREDITS = 0.82;
 const CURRENT_PRICE = 1500;
-const MONETARY_VALUE = Math.round(CURRENT_CREDITS * CURRENT_PRICE);
 
-function clientCarbonForecast() {
+function clientCarbonForecast(currentCredits: number) {
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const monthlyRate = CURRENT_CREDITS / 3;
+    const monthlyRate = currentCredits / 3;
     const seasonalAccel = [1.0, 1.0, 1.0, 1.15, 1.3, 1.45];
 
     const historical: (number | null)[] = [];
@@ -38,7 +36,7 @@ function clientCarbonForecast() {
         } else {
             historical.push(null);
             const projRate = monthlyRate * seasonalAccel[i];
-            const projTotal = CURRENT_CREDITS + projRate * (i - 2);
+            const projTotal = currentCredits + projRate * (i - 2);
             const ci = projRate * 0.15 * Math.sqrt(i - 2);
             forecasted.push(Math.round(projTotal * 100) / 100);
             ciUpper.push(Math.round((projTotal + ci) * 100) / 100);
@@ -46,9 +44,9 @@ function clientCarbonForecast() {
         }
     }
     // Connect forecast start
-    forecasted[2] = CURRENT_CREDITS;
-    ciUpper[2] = CURRENT_CREDITS;
-    ciLower[2] = CURRENT_CREDITS;
+    forecasted[2] = currentCredits;
+    ciUpper[2] = currentCredits;
+    ciLower[2] = currentCredits;
 
     return { monthLabels, historical, forecasted, ciUpper, ciLower, endOfSeason: forecasted[5] || 2.5 };
 }
@@ -80,8 +78,40 @@ const MARKETPLACE = [
     { buyer: 'HDFC Sustainability', rate: 1450, demand: 'LOW', reqs: ['Solar', 'Methane'], icon: <Shield size={18} color="var(--color-blue-500)" /> },
 ];
 
+import { useAuth } from '@/lib/auth';
+import { useChronos } from '@/hooks/useChronos';
+import { useWeather } from '@/hooks/useWeather';
+import { getSunTimes, getSunPosition, calcSolarEfficiency, calcEnergyToday } from '@/lib/solarEngine';
+
 export default function CarbonPage() {
-    const yieldData = useMemo(() => clientCarbonForecast(), []);
+    // ── Shared Generation Logic ──
+    const { user } = useAuth();
+    const chronos = useChronos();
+    const { weather } = useWeather(chronos.lat, chronos.lon, chronos.geoLoaded);
+
+    const solarEnergy = useMemo(() => {
+        if (!weather) return 0;
+        const sunTimes = getSunTimes(chronos.currentTime, chronos.lat, chronos.lon);
+        const sunPos = getSunPosition(chronos.currentTime, chronos.lat, chronos.lon);
+        return calcEnergyToday(
+            chronos.lat, chronos.lon,
+            sunTimes.sunrise, sunTimes.sunset, chronos.currentTime,
+            weather.clouds, weather.humidity
+        );
+    }, [chronos.currentTime, chronos.lat, chronos.lon, weather]);
+
+    // ── Credit Synchronization (Matches Dashboard) ──
+    const CURRENT_CREDITS = useMemo(() => {
+        const userFarmSize = user?.farmSize || 2;
+        const baseCarbonCredits = 0.82 * (userFarmSize / 2);
+        const todayCredits = Math.round(solarEnergy * 0.034 * 100) / 100;
+        return Math.round((baseCarbonCredits + todayCredits) * 100) / 100;
+    }, [user, solarEnergy]);
+
+    const CURRENT_PRICE = 1500;
+    const MONETARY_VALUE = Math.round(CURRENT_CREDITS * CURRENT_PRICE);
+
+    const yieldData = useMemo(() => clientCarbonForecast(CURRENT_CREDITS), [CURRENT_CREDITS]);
 
     // ── SVG Fan Chart for Predicted Carbon Yield
     const chartW = 600, chartH = 180, pad = { top: 20, bottom: 30, left: 45, right: 15 };
@@ -170,7 +200,7 @@ export default function CarbonPage() {
                 </div>
 
                 {/* ═══ ECOLOGICAL METRICS — 6 cards with relative efficiency ═══ */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     {/* CO₂ Reduced */}
                     <div className="card" style={{ padding: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -430,7 +460,7 @@ export default function CarbonPage() {
                         <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-green-800)' }}>International ESG Compliance</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
                         {/* Verra */}
                         <div style={{ padding: '0.5rem', background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-green-100)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>

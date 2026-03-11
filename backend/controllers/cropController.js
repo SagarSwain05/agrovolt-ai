@@ -1,6 +1,7 @@
 const Farm = require("../models/Farm");
 const Crop = require("../models/Crop");
 const cropRecommender = require("../mlModels/cropRecommender");
+const axios = require("axios");
 
 // @desc    Get crop recommendations
 // @route   POST /api/crop/recommend
@@ -11,18 +12,67 @@ exports.getRecommendations = async (req, res) => {
     const farm = await Farm.findOne({ userId: req.user._id });
 
     if (!farm) {
-      return res.status(404).json({
-        success: false,
-        message: "Farm not found"
-      });
+      return res.status(404).json({ success: false, message: "Farm not found" });
     }
+
+    // Default location (Bhubaneswar)
+    const lat = farm.location?.lat || 20.29;
+    const lon = farm.location?.lon || 85.82;
+
+    // ═══ PARALLEL DATA ENRICHMENT ═══
+    let liveWeather = { temperature: 30, humidity: 60 };
+    let solarIrradiance = 4.5; // kWh/m²/day default
+
+    try {
+      const [weatherRes, nasaRes] = await Promise.allSettled([
+        // 1. OpenWeatherMap — Real-time temperature & humidity
+        axios.get(`https://api.openweathermap.org/data/2.5/weather`, {
+          params: { lat, lon, appid: process.env.OPENWEATHER_API_KEY, units: 'metric' },
+          timeout: 5000
+        }),
+        // 2. NASA POWER — 30-year avg solar irradiance (ALLSKY_SFC_SW_DWN)
+        axios.get(`https://power.larc.nasa.gov/api/temporal/climatology/point`, {
+          params: {
+            parameters: 'ALLSKY_SFC_SW_DWN',
+            community: 'AG',
+            longitude: lon,
+            latitude: lat,
+            format: 'JSON'
+          },
+          timeout: 8000
+        })
+      ]);
+
+      if (weatherRes.status === 'fulfilled') {
+        const w = weatherRes.value.data;
+        liveWeather = { temperature: Math.round(w.main.temp), humidity: w.main.humidity };
+      }
+
+      if (nasaRes.status === 'fulfilled') {
+        const params = nasaRes.value.data?.properties?.parameter?.ALLSKY_SFC_SW_DWN;
+        if (params && params.ANN) {
+          solarIrradiance = parseFloat(params.ANN.toFixed(2));
+        }
+      }
+    } catch (enrichErr) {
+      console.log("Data enrichment partially failed, using defaults:", enrichErr.message);
+    }
+
+    // ═══ DYNAMIC SHADE FACTOR ═══
+    const panelCoverage = farm.solarInstalled ? 0.40 : 0.0; // 40% default coverage
+    const globalAvgIrradiance = 4.5; // kWh/m²/day world average
+    const shadeFactor = panelCoverage * (solarIrradiance / globalAvgIrradiance);
 
     const conditions = {
       soilType: soilType || farm.soilType || 'loamy',
       rainfall: rainfall || 600,
       season: season || 'kharif',
       district: farm.location?.district || 'Khordha',
-      shadowCoverage: 40,
+      shadowCoverage: Math.round(shadeFactor * 100) || 40,
+      temperature: liveWeather.temperature,
+      humidity: liveWeather.humidity,
+      solarIrradiance,
+      shadeFactor: parseFloat(shadeFactor.toFixed(3)),
     };
 
     const result = cropRecommender.recommend(conditions);
@@ -32,8 +82,16 @@ exports.getRecommendations = async (req, res) => {
       data: {
         recommendations: result.recommendations,
         topPick: result.topPick,
+        excluded: result.excluded,
         modelVersion: result.modelVersion,
         algorithm: result.algorithm,
+        liveEnrichment: {
+          temperature: liveWeather.temperature,
+          humidity: liveWeather.humidity,
+          solarIrradiance,
+          shadeFactor: parseFloat(shadeFactor.toFixed(3)),
+          location: { lat, lon },
+        },
         farmDetails: {
           soilType: conditions.soilType,
           size: farm.farmSize,
@@ -48,10 +106,7 @@ exports.getRecommendations = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

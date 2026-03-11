@@ -87,7 +87,7 @@ export default function ProfitPage() {
 
             <div className="page-container">
                 {/* ══════ STAT CARDS — Revenue + Expenses + Net Profit ══════ */}
-                <div className="grid-4" style={{ marginBottom: '1.25rem' }}>
+                <div className="grid-4" style={{ marginBottom: '1.5rem' }}>
                     <StatCard icon={<IndianRupee size={20} strokeWidth={1.75} />} label="Gross Revenue (6mo)" value={`₹${(totalRevenue / 1000).toFixed(1)}K`} trend="up" trendValue="+18%" variant="green" />
                     <StatCard icon={<Minus size={20} strokeWidth={1.75} />} label="Total Input Costs" value={`₹${(totalExpenses / 1000).toFixed(1)}K`} subValue={`${Math.round((totalExpenses / totalRevenue) * 100)}% of revenue`} variant="default" />
                     <StatCard icon={<TrendingUp size={20} strokeWidth={1.75} />} label="Net Profit" value={`₹${(netProfit / 1000).toFixed(1)}K`} trend="up" trendValue={`${profitMargin}% margin`} variant="green" />

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -38,19 +38,25 @@ export default function Sidebar() {
     const { user, logout } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
 
+    // ── KEY FIX: Update the CSS variable so the main content area resizes ──
+    useEffect(() => {
+        document.documentElement.style.setProperty(
+            '--sidebar-width',
+            collapsed ? '72px' : '260px'
+        );
+    }, [collapsed]);
+
     return (
         <aside
-            className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}
+            className={`sidebar hidden md:flex md:flex-col ${collapsed ? 'sidebar-collapsed' : ''}`}
             style={{
                 position: 'fixed',
                 top: 0,
                 left: 0,
                 bottom: 0,
-                width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)',
+                width: collapsed ? '72px' : '260px',
                 background: 'linear-gradient(180deg, #064e3b 0%, #047857 40%, #059669 100%)',
                 zIndex: 50,
-                display: 'flex',
-                flexDirection: 'column',
                 transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 overflow: 'hidden',
             }}
@@ -79,7 +85,7 @@ export default function Sidebar() {
                         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'white', fontSize: '1.125rem', letterSpacing: '-0.02em' }}>
                             AgroVolt AI
                         </div>
-                        <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
+                        <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' as const, fontFamily: 'var(--font-body)' }}>
                             Bio-Solar Intelligence
                         </div>
                     </div>
@@ -88,7 +94,7 @@ export default function Sidebar() {
 
             {/* Navigation */}
             <nav style={{ flex: 1, padding: '0.75rem 0.5rem', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '2px' }}>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         const IconComp = item.icon;
@@ -177,7 +183,7 @@ export default function Sidebar() {
                             {user.name?.charAt(0)?.toUpperCase() || 'F'}
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ color: 'white', fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div style={{ color: 'white', fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {user.name || 'Farmer'}
                             </div>
                             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6875rem' }}>

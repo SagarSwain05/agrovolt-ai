@@ -24,8 +24,8 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
@@ -36,6 +36,7 @@ app.use("/api/disease", require("./routes/diseaseRoutes"));
 app.use("/api/carbon", require("./routes/carbonRoutes"));
 app.use("/api/market", require("./routes/marketRoutes"));
 app.use("/api/weather", require("./routes/weatherRoutes"));
+app.use("/api/scan", require("./routes/scanRoutes"));
 
 // MongoDB Connection
 mongoose

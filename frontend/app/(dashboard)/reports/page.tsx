@@ -42,7 +42,7 @@ export default function ReportsPage() {
                     </h3>
                     <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', marginBottom: '1rem' }}>Based on NASA POWER + IMD historical data</p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
                         {[
                             { label: 'Avg. Temperature', value: '32.4°C', trend: '↑ 1.2°C', risk: 'Medium', icon: <Thermometer size={18} color="var(--color-solar-500)" /> },
                             { label: 'Monsoon Onset', value: 'June 12', trend: '3 days early', risk: 'Low', icon: <CloudRain size={18} color="var(--color-blue-500)" /> },
@@ -113,7 +113,7 @@ export default function ReportsPage() {
                         <Zap size={20} strokeWidth={1.75} color="var(--color-solar-600)" />
                         Bio-Solar Symbiosis Analysis
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
                         {[
                             { title: 'Panel Cooling Effect', value: '-3.2°C', desc: 'Crop transpiration reduces panel temperature, boosting efficiency by 3%', icon: <Thermometer size={20} color="var(--color-blue-500)" />, bg: 'var(--color-blue-50)' },
                             { title: 'Shade Utilization', value: '85%', desc: 'Shade-tolerant crops maximize land use under panels during peak sun hours', icon: <Sun size={20} color="var(--color-solar-500)" />, bg: 'var(--color-solar-50)' },

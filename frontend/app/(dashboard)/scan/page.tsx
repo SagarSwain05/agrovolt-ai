@@ -121,6 +121,25 @@ function generateBBoxes(affArea: number) {
 function runCropScan(cropHint: string) {
     const cropName = Object.keys(CROP_DB).find(c => c.toLowerCase() === cropHint.toLowerCase()) || 'Tomato';
     const crop = CROP_DB[cropName];
+
+    // Zero-Detection Path: 25% chance to just return completely healthy without hallucinating a disease
+    const isHealthy = Math.random() < 0.25;
+
+    if (isHealthy) {
+        return {
+            crop: cropName, family: crop.family, disease: 'Healthy', pathogen: 'None detected', cls: 'none',
+            confidence: Math.round((0.88 + Math.random() * 0.10) * 100), severity: 'Normal', affectedArea: '0%',
+            symptoms: 'Foliage appears green and structurally intact.', treatment: ['Continue regular irrigation', 'Maintain current fertilization schedule', 'Monitor for pests weekly'], organic: 'Standard compost application', spread: 'N/A',
+            yieldLoss: 0, rupeeRisk: 0,
+            bboxes: [], // Zero detection -> Zero boxes
+            pipeline: [
+                { stage: 1, name: 'Subject Classifier (ViT)', result: `${cropName} (${crop.family})`, conf: Math.round((0.90 + Math.random() * 0.08) * 100), ms: Math.floor(Math.random() * 40 + 25) },
+                { stage: 2, name: 'Disease Detector (YOLOv8)', result: 'No defects found', conf: 92, ms: Math.floor(Math.random() * 100 + 80) },
+                { stage: 3, name: 'Context Injector (LLM)', result: 'Optimal health confirmed', conf: null, ms: Math.floor(Math.random() * 40 + 15) },
+            ],
+        }
+    }
+
     const d = crop.diseases[Math.floor(Math.random() * crop.diseases.length)];
     const si = Math.floor(Math.random() * d.severity.length);
     const aff = d.yieldLoss[si] || 0;
@@ -140,6 +159,22 @@ function runCropScan(cropHint: string) {
 }
 
 function runPanelScan() {
+    // Zero-Detection Path: 30% chance to return a perfectly clean panel
+    const isClean = Math.random() < 0.30;
+
+    if (isClean) {
+        return {
+            defect: 'Clean/Normal', severity: 'Normal', effLoss: 0, dailyLoss: 0,
+            symptoms: 'Surface is clear; no microcracks or shadowing detected.', action: ['Continue routine monitoring', 'Perform standard bi-weekly wash'], method: 'RGB Edge Detection + HSL', confidence: Math.round((0.88 + Math.random() * 0.08) * 100),
+            bboxes: [], // Zero detection -> Zero boxes
+            pipeline: [
+                { stage: 1, name: 'Subject Classifier (ViT)', result: 'Solar Panel', conf: 97, ms: 18 },
+                { stage: 2, name: 'Defect Detector (YOLOv8)', result: 'No defects found', conf: 94, ms: Math.floor(Math.random() * 80 + 50) },
+                { stage: 3, name: 'Impact Calculator', result: 'Operating at peak efficiency', conf: null, ms: 12 },
+            ],
+        };
+    }
+
     const d = PANEL_DB[Math.floor(Math.random() * PANEL_DB.length)];
     const li = Math.floor(Math.random() * d.effLoss.length);
     const conf = Math.round((0.82 + Math.random() * 0.14) * 100);
@@ -174,9 +209,9 @@ function validateImageLocally(dataUrl: string): Promise<{ valid: boolean; type: 
             const totalPixels = data.length / 4;
 
             let greenVeg = 0;   // vegetation pixels
-            let bluePanel = 0;  // metallic / blue-gray pixels
+            let bluePanel = 0;  // metallic / blue-gray / dark pixels
             let skinTone = 0;   // human skin tone pixels
-            let grayCount = 0;  // neutral gray pixels
+            let brightWall = 0; // neutral bright background (walls/ceilings)
 
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
@@ -191,42 +226,84 @@ function validateImageLocally(dataUrl: string): Promise<{ valid: boolean; type: 
                     else h = ((r - g) / d + 4) * 60;
                 }
 
-                // Classify pixel by HSL ranges
-                if (s > 0.12 && h >= 55 && h <= 165 && l > 0.08 && l < 0.92) {
-                    greenVeg++;  // True vegetation green
-                } else if ((s > 0.08 && h >= 180 && h <= 260) || (s < 0.08 && l > 0.15 && l < 0.85)) {
-                    bluePanel++;  // Blue/metallic or neutral gray (panel-like)
-                    if (s < 0.08) grayCount++;
-                } else if (s > 0.15 && s < 0.75 && h >= 5 && h <= 50 && l > 0.25 && l < 0.80) {
-                    skinTone++;  // Human skin tones
+                // 1. Skin Tone (Broadened to catch faces in shadow, beige walls)
+                if (s > 0.10 && h >= 5 && h <= 50 && l > 0.15 && l < 0.85) {
+                    skinTone++;
+                }
+                // 2. Crop Vegetation (Green)
+                else if (s > 0.15 && h >= 60 && h <= 160 && l > 0.15 && l < 0.80) {
+                    greenVeg++;
+                }
+                // 3. Solar Panel (Deep Blue or Near Black/Very Dark Gray)
+                else if ((s >= 0.15 && h >= 190 && h <= 250 && l < 0.50) || (l < 0.20 && s < 0.20)) {
+                    bluePanel++;
+                }
+                // 4. Irrelevant Wall/Background (Bright Neutral)
+                else if (s < 0.15 && l > 0.40) {
+                    brightWall++;
                 }
             }
 
             const greenPct = (greenVeg / totalPixels) * 100;
             const panelPct = (bluePanel / totalPixels) * 100;
             const skinPct = (skinTone / totalPixels) * 100;
-            const grayPct = (grayCount / totalPixels) * 100;
+            const wallPct = (brightWall / totalPixels) * 100;
 
-            // Reject if high skin-tone content (likely a person)
-            if (skinPct > 25) {
-                resolve({ valid: false, type: 'unknown', reason: `This appears to be a photo of a person (${Math.round(skinPct)}% skin-tone pixels detected). Please upload a clear photo of a crop leaf or solar panel.` });
+            // ── DECISION LOGIC ────────────────────────────────────
+            // Priority: reject faces FIRST, then check for plants/panels
+
+            // 1. Reject bright empty backgrounds (walls, ceilings, sky)
+            if (wallPct > 60 && panelPct < 5 && greenPct < 5 && skinPct < 10) {
+                resolve({ valid: false, type: 'unknown', reason: `Irrelevant background detected. Please point the camera directly at a crop or solar panel.` });
                 return;
             }
 
-            // Accept if enough green vegetation pixels
-            if (greenPct >= 18) {
-                resolve({ valid: true, type: 'crop', reason: `Vegetation detected (${Math.round(greenPct)}% green plant pixels)` });
+            // 2. HUMAN FACE REJECTION — multi-tier check
+            //    KEY INSIGHT: In faces, skin pixels DOMINATE over green pixels.
+            //    In diseased leaves, green is present even if brown/yellow dominates.
+            //    A person with a green shirt/background still has skin > green ratio.
+
+            // 2a. Strong skin detection (high skin, low green)
+            if (skinPct > 18 && greenPct < 8) {
+                resolve({ valid: false, type: 'unknown', reason: `This appears to be a non-plant subject. Please upload a clear photo of a crop leaf or solar panel.` });
                 return;
             }
 
-            // Accept if enough blue/metallic/gray pixels (panel)
-            if (panelPct >= 15 || grayPct >= 30) {
-                resolve({ valid: true, type: 'panel', reason: `Metallic/panel surface detected (${Math.round(panelPct)}% blue-gray pixels)` });
+            // 2b. Skin-to-green RATIO check — if skin dominates green by 2x or more, 
+            //     it's almost certainly a face/human, not a plant
+            if (skinPct > 12 && skinPct > greenPct * 2) {
+                resolve({ valid: false, type: 'unknown', reason: `Human/non-plant subject detected. The camera should point directly at a crop leaf, not a person.` });
                 return;
             }
 
-            // Not enough evidence of plant or panel
-            resolve({ valid: false, type: 'unknown', reason: `This image doesn't contain enough plant vegetation (${Math.round(greenPct)}% green) or panel surface (${Math.round(panelPct)}% metallic) pixels. Please upload a close-up photo of a crop leaf or solar panel surface.` });
+            // 2c. Moderate skin with almost zero green (face with dark background)
+            if (skinPct > 10 && greenPct < 3 && panelPct < 5) {
+                resolve({ valid: false, type: 'unknown', reason: `This doesn't appear to be a plant or solar panel. Please upload a clear crop leaf photo.` });
+                return;
+            }
+
+            // 3. CROP ACCEPTANCE — green vegetation must be meaningful
+            //    DO NOT count skin pixels as "agricultural" — that was the old bug
+            if (greenPct >= 8) {
+                resolve({ valid: true, type: 'crop', reason: `Crop vegetation detected (${Math.round(greenPct)}% green pixels)` });
+                return;
+            }
+
+            // 3b. For diseased/brown leaves: some green + some brown/warm tones
+            //     Only accept if green is at least HALF of skin (indicates actual plant material)
+            if (greenPct >= 3 && skinPct > 5 && greenPct >= skinPct * 0.4) {
+                resolve({ valid: true, type: 'crop', reason: `Possible diseased crop material detected` });
+                return;
+            }
+
+            // 4. Accept if enough dark/blue panel pixels
+            if (panelPct >= 10) {
+                resolve({ valid: true, type: 'panel', reason: `Solar panel surface detected (${Math.round(panelPct)}% dark/blue pixels)` });
+                return;
+            }
+
+            // 5. Not enough evidence of plant or panel
+            resolve({ valid: false, type: 'unknown', reason: `Image not recognized as a crop leaf or solar panel. Please upload a clear, close-up photo.` });
         };
         img.onerror = () => resolve({ valid: false, type: 'unknown', reason: 'Could not load image.' });
         img.src = dataUrl;
@@ -239,7 +316,7 @@ export default function ScanPage() {
     const [result, setResult] = useState<any>(null);
     const [scanning, setScanning] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
-    const [selectedCrop, setSelectedCrop] = useState('Tomato');
+    // Removed crop selector — AI auto-detects crop from image
     const [cameraActive, setCameraActive] = useState(false);
     const [videoReady, setVideoReady] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -247,7 +324,7 @@ export default function ScanPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
 
-    const CROPS = Object.keys(CROP_DB);
+    // CROPS dropdown removed — detection is purely image-based now
 
     // ═══ KEY FIX: Connect stream → video AFTER React renders the <video> element ═══
     React.useEffect(() => {
@@ -341,16 +418,36 @@ export default function ScanPage() {
             return;
         }
 
-        // Image is valid — run disease/defect detection
-        setTimeout(() => {
-            if (mode === 'crop') {
-                // Use validated type or user-selected crop
-                setResult(runCropScan(selectedCrop));
-            } else {
-                setResult(runPanelScan());
-            }
+        // Gatekeeper Pattern: Enforce that the user is scanning the correct subject for their active mode
+        if (validation.valid && validation.type !== mode) {
+            setScanError(`You are currently in ${mode === 'crop' ? 'Crop' : 'Panel'} mode, but the AI identified this as a ${validation.type === 'crop' ? 'crop leaf' : 'solar panel'}. Please switch modes or upload the correct image.`);
             setScanning(false);
-        }, 1800);
+            return;
+        }
+
+        try {
+            const endpoint = mode === 'crop' ? '/api/scan/crop' : '/api/scan/panel';
+            const payload = mode === 'crop' ? { image } : { image, panelId: 'Panel #1' };
+
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+            const response = await fetch(`${apiUrl}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setResult(data.data);
+            } else {
+                setScanError(data.message || 'Error processing image.');
+            }
+        } catch (error) {
+            console.error("Vision Engine Error:", error);
+            setScanError('Failed to connect to the Vision API. Please ensure the backend is running and reachable.');
+        } finally {
+            setScanning(false);
+        }
     };
 
     const sevColor = (s: string) => s === 'Severe' || s === 'Critical' ? 'var(--color-red-500)' : s === 'Moderate' || s === 'High' || s === 'Medium' ? 'var(--color-solar-600)' : 'var(--color-green-600)';
@@ -360,17 +457,13 @@ export default function ScanPage() {
             <Navbar title="Scan Hub" subtitle="Vision AI Engine — YOLOv8 + PlantDoc Cascade Pipeline for worldwide crop & panel diagnostics" />
             <div className="page-container">
                 {/* Mode Toggle + Crop Select */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.375rem', padding: '0.25rem', borderRadius: 'var(--radius-full)', background: 'var(--color-gray-100)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.375rem', padding: '0.25rem', borderRadius: 'var(--radius-full)', background: 'var(--color-gray-100)', width: 'max-content' }}>
                         {[{ key: 'crop', label: 'Crop Disease', icon: <Leaf size={14} /> }, { key: 'panel', label: 'Panel Defect', icon: <Sun size={14} /> }].map(tab => (
                             <button key={tab.key} onClick={() => { setMode(tab.key as any); setResult(null); setImage(null); }} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: 'none', background: mode === tab.key ? 'white' : 'transparent', color: mode === tab.key ? 'var(--color-green-700)' : 'var(--color-gray-500)', fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', fontFamily: 'var(--font-body)', boxShadow: mode === tab.key ? 'var(--shadow-sm)' : 'none' }}>{tab.icon} {tab.label}</button>
                         ))}
                     </div>
-                    {mode === 'crop' && (
-                        <select value={selectedCrop} onChange={e => { setSelectedCrop(e.target.value); setResult(null); }} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-gray-200)', fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-body)', color: 'var(--color-gray-700)', background: 'white', cursor: 'pointer' }}>
-                            {CROPS.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    )}
+                    {/* Crop dropdown removed — AI auto-detects crop from the image */}
                 </div>
 
                 <div className="grid-2" style={{ marginBottom: '1.25rem' }}>
@@ -480,7 +573,7 @@ export default function ScanPage() {
                             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-gray-400)' }}>
                                 <ScanLine size={40} strokeWidth={1} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
                                 <p style={{ fontSize: '0.875rem' }}>Upload or capture to get AI diagnosis</p>
-                                <p style={{ fontSize: '0.6875rem', marginTop: '0.25rem' }}>Supports {CROPS.length}+ crops worldwide · {PANEL_DB.length} panel defect types</p>
+                                <p style={{ fontSize: '0.6875rem', marginTop: '0.25rem' }}>Supports 12+ crops worldwide · {PANEL_DB.length} panel defect types</p>
                                 <p style={{ fontSize: '0.5625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-300)', marginTop: '0.5rem' }}>PlantDoc Dataset (IIT) · YOLOv8-Nano · Edge AI</p>
                             </div>
                         ) : mode === 'crop' && result.disease ? (
@@ -571,7 +664,7 @@ export default function ScanPage() {
                 </div>
 
                 {/* ═══ BOTTOM ROW: Context + Outbreak + Recents ═══ */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
                     {/* Farm Context */}
                     <div className="card" style={{ padding: '0.875rem' }}>
                         <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Target size={16} color="var(--color-green-600)" /> Farm Context</h4>
@@ -586,7 +679,7 @@ export default function ScanPage() {
                         </div>
                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Last Scan</span><span style={{ fontFamily: 'var(--font-mono)' }}>3h ago (Healthy ✅)</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Supported Crops</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-green-600)' }}>{CROPS.length} species</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Supported Crops</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-green-600)' }}>12 species</span></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Panel Defects</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{PANEL_DB.length} types</span></div>
                         </div>
                     </div>

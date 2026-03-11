@@ -3,11 +3,13 @@
 import React, { useState, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import StatCard from '@/components/StatCard';
+import { useChronos } from '@/hooks/useChronos';
+import { useWeather } from '@/hooks/useWeather';
 import {
     BarChart3, MapPin, TrendingUp, Timer, ArrowUpRight, ArrowDownRight,
-    ChevronRight, Activity, IndianRupee, BrainCircuit,
+    ChevronRight, Activity, IndianRupee, BrainCircuit, Sun, Moon, CloudSun,
     Target, Clock, AlertCircle, Truck, Fuel, CloudRain, PartyPopper,
-    ArrowRight, Minus,
+    ArrowRight, Minus, Thermometer, Droplets, Wind, Sprout, ShieldCheck,
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════
@@ -172,15 +174,25 @@ const CROP_DATA: Record<string, {
     },
 };
 
+// Mandi coordinates for haversine distance from user's GPS
 const MANDIS = [
-    { name: 'Khordha Mandi', dist_km: 5, type: 'primary' },
-    { name: 'Bhubaneswar APMC', dist_km: 12, type: 'city' },
-    { name: 'Cuttack Mandi', dist_km: 30, type: 'regional' },
-    { name: 'Puri Market', dist_km: 65, type: 'district' },
-    { name: 'Berhampur Market', dist_km: 170, type: 'state' },
+    { name: 'Khordha Mandi', lat: 20.1825, lon: 85.6165, type: 'primary', fallback_km: 5 },
+    { name: 'Bhubaneswar APMC', lat: 20.2961, lon: 85.8245, type: 'city', fallback_km: 12 },
+    { name: 'Cuttack Mandi', lat: 20.4625, lon: 85.8830, type: 'regional', fallback_km: 30 },
+    { name: 'Puri Market', lat: 19.8135, lon: 85.8312, type: 'district', fallback_km: 65 },
+    { name: 'Berhampur Market', lat: 19.3150, lon: 84.7941, type: 'state', fallback_km: 170 },
 ];
 
 const TRANSPORT_RATE = 12; // ₹ per km per quintal
+
+// Haversine formula for real GPS distance
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3); // 1.3x for road factor
+}
 
 const UPCOMING_EVENTS = [
     { date: '03/12', type: 'weather', icon: '🌧', label: 'Rain Alert', impact: +12 },
@@ -232,6 +244,8 @@ function clientForecast(daily: { price: number }[], forecastDays = 14): { foreca
 const crops = ['Tomato', 'Turmeric', 'Rice', 'Wheat', 'Millet', 'Groundnut', 'Soybean'];
 
 export default function MarketPage() {
+    const chronos = useChronos();
+    const { weather, isNight } = useWeather(chronos.lat, chronos.lon, chronos.geoLoaded);
     const [selectedCrop, setSelectedCrop] = useState('Tomato');
     const [showEvents, setShowEvents] = useState(true);
 
@@ -244,19 +258,22 @@ export default function MarketPage() {
     const { forecast = [], signal = 'WAIT', waitDays = 3, pctChange = 0, confidence = 75 } = forecastResult || {};
     const forecast7d = forecast[Math.min(6, forecast.length - 1)]?.price || currentPrice;
 
-    // ═══ Mandi Net Arbitrage ═══
+    // ═══ Mandi Net Arbitrage (with GPS distance) ═══
     const mandis = useMemo(() => {
         const spread = cropData.spread;
         return MANDIS.map(m => {
+            const dist_km = chronos.geoLoaded
+                ? haversineKm(chronos.lat, chronos.lon, m.lat, m.lon)
+                : m.fallback_km;
             const price = Math.round(currentPrice * (spread[m.name] || 1.0));
-            const transport = m.dist_km * TRANSPORT_RATE;
+            const transport = dist_km * TRANSPORT_RATE;
             const netProfit = price - transport;
             const last3 = daily.slice(-3).map((d: any) => d.price);
             const avg3 = last3.reduce((s: number, v: number) => s + v, 0) / 3;
             const trendDir = price > avg3 * 1.01 ? 'up' : price < avg3 * 0.99 ? 'down' : 'stable';
-            return { ...m, price, transport, netProfit, trend: trendDir };
+            return { ...m, dist_km, price, transport, netProfit, trend: trendDir };
         }).sort((a, b) => b.netProfit - a.netProfit);
-    }, [selectedCrop]);
+    }, [selectedCrop, chronos.lat, chronos.lon, chronos.geoLoaded]);
 
     const bestMandi = mandis[0];
 
@@ -287,9 +304,44 @@ export default function MarketPage() {
     const yTicks = 5;
     const yLabels = Array.from({ length: yTicks }, (_, i) => Math.round(minP + (maxP - minP) * (i / (yTicks - 1))));
 
+    // ═══ Weather-crop insight ═══
+    const weatherInsight = useMemo(() => {
+        if (!weather) return null;
+        const temp = weather.temperature;
+        const humid = weather.humidity;
+        const desc = weather.description.toLowerCase();
+        const isRainy = desc.includes('rain');
+        const insights: { icon: React.ReactNode; text: string; impact: string; color: string }[] = [];
+
+        if (isRainy) {
+            insights.push({ icon: <CloudRain size={14} />, text: 'Rain reduces market arrivals — prices tend to rise 5-12%', impact: '+price', color: 'var(--color-green-600)' });
+        }
+        if (temp > 35) {
+            insights.push({ icon: <Thermometer size={14} />, text: `Heat wave (${temp}°C) — perishables spoil faster, sell quickly`, impact: 'Urgent', color: 'var(--color-red-500)' });
+        } else if (temp > 30) {
+            insights.push({ icon: <Thermometer size={14} />, text: `Warm (${temp}°C) — optimal transport window is early morning`, impact: 'Note', color: 'var(--color-solar-600)' });
+        }
+        if (humid > 80) {
+            insights.push({ icon: <Droplets size={14} />, text: `High humidity (${humid}%) — increased fungal risk on stored produce`, impact: '-quality', color: 'var(--color-red-500)' });
+        }
+        if (selectedCrop === 'Tomato' && temp > 32) {
+            insights.push({ icon: <Sprout size={14} />, text: 'Summer tomato price surge expected — Holt-Winters confirms uptrend', impact: '+₹200-400/q', color: 'var(--color-green-600)' });
+        }
+        if (selectedCrop === 'Rice' && cropData.msp && currentPrice < cropData.msp) {
+            insights.push({ icon: <ShieldCheck size={14} />, text: `Below MSP (₹${cropData.msp}) — sell through govt procurement for guaranteed price`, impact: 'MSP', color: 'var(--color-blue-600)' });
+        }
+        return insights;
+    }, [weather, selectedCrop, currentPrice]);
+
     return (
         <div>
-            <Navbar title="Market Intelligence" subtitle="AI-powered Mandi price forecasting & optimal selling recommendations" />
+            <Navbar
+                title="Market Intelligence"
+                subtitle={`${chronos.formattedDate} — ${chronos.formattedTime}`}
+                temperature={weather?.temperature}
+                isNight={isNight}
+                weatherIcon={weather ? (isNight ? <Moon size={14} /> : <Sun size={14} color="var(--color-solar-500)" />) : undefined}
+            />
 
             <div className="page-container">
                 {/* Stats */}
@@ -415,7 +467,7 @@ export default function MarketPage() {
                             Net Arbitrage — {selectedCrop}
                         </h3>
                         <p style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', marginBottom: '0.75rem' }}>
-                            Sorted by net profit (price minus transport @ ₹{TRANSPORT_RATE}/km/q)
+                            {chronos.geoLoaded ? '📍 Distances calculated from your GPS location' : 'Sorted by net profit'} (@ ₹{TRANSPORT_RATE}/km/q)
                         </p>
 
                         {/* Header */}
@@ -537,6 +589,39 @@ export default function MarketPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* ═══ WEATHER-CROP INSIGHTS ═══ */}
+                    {weatherInsight && weatherInsight.length > 0 && (
+                        <div className="card" style={{ marginTop: '1.5rem' }}>
+                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <CloudSun size={20} strokeWidth={1.75} color="var(--color-blue-500)" />
+                                Weather × Market Insights
+                            </h3>
+                            <p style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', marginBottom: '0.75rem' }}>
+                                How current weather in {weather?.location || 'Bhubaneswar'} affects {selectedCrop} pricing
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {weatherInsight.map((ins, i) => (
+                                    <div key={i} style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                        padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-lg)',
+                                        background: 'var(--color-gray-50)', border: '1px solid var(--color-gray-100)',
+                                    }}>
+                                        <div style={{ color: ins.color }}>{ins.icon}</div>
+                                        <div style={{ flex: 1, fontSize: '0.8125rem', color: 'var(--color-gray-700)' }}>{ins.text}</div>
+                                        <span style={{
+                                            fontSize: '0.625rem', fontWeight: 700, fontFamily: 'var(--font-mono)',
+                                            padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)',
+                                            background: ins.color === 'var(--color-green-600)' ? 'rgba(34,197,94,0.1)' : ins.color === 'var(--color-red-500)' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
+                                            color: ins.color,
+                                        }}>
+                                            {ins.impact}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

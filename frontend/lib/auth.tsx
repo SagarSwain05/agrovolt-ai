@@ -38,6 +38,8 @@ interface RegisterData {
   district?: string;
   farmSize?: number;
   language?: string;
+  farmName?: string;
+  location?: any;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,7 +82,7 @@ function generateLocalToken(userId: string): string {
 // ═══ TRY BACKEND, FALLBACK TO LOCAL ═══
 async function tryBackendLogin(email: string, password: string): Promise<{ user: User; token: string } | null> {
   try {
-    const res = await fetch('http://localhost:5000/api/auth/login', {
+    const res = await fetch('http://localhost:5001/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -110,7 +112,7 @@ async function tryBackendLogin(email: string, password: string): Promise<{ user:
 
 async function tryBackendRegister(data: RegisterData): Promise<{ user: User; token: string } | null> {
   try {
-    const res = await fetch('http://localhost:5000/api/auth/register', {
+    const res = await fetch('http://localhost:5001/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -194,8 +196,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!data.email?.trim()) throw new Error('Please enter your email.');
     if (!data.password || data.password.length < 4) throw new Error('Password must be at least 4 characters.');
 
+    const backendPayload = {
+      ...data,
+      farmName: data.name ? `${data.name}'s Farm` : 'My Farm',
+      location: {
+        district: data.district || '',
+        latitude: 20.5937,
+        longitude: 78.9629,
+        address: '',
+        state: ''
+      }
+    };
+
     // Try backend first
-    const backendResult = await tryBackendRegister(data);
+    const backendResult = await tryBackendRegister(backendPayload);
     if (backendResult) {
       setToken(backendResult.token);
       setUser(backendResult.user);

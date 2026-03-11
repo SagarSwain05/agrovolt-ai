@@ -38,3 +38,10 @@ build/
 *.egg-info/
 .next/
 uploads/
+
+# Test and debug scripts
+backend/test_*.js
+backend/check_*.js
+
+# Gemini artifacts
+.gemini/

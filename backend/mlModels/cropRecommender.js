@@ -59,16 +59,34 @@ const RAINFALL_RANGES = {
     Wheat: { min: 200, optimal_low: 300, optimal_high: 600, max: 900 },
 };
 
+// ══════════════════════════════════════════════════
+// TEMPERATURE RANGES (°C)
+// Each crop has an optimal temperature range.
+// ══════════════════════════════════════════════════
+const TEMP_RANGES = {
+    Rice: { min: 18, optimal_low: 22, optimal_high: 35, max: 42 },
+    Tomato: { min: 10, optimal_low: 18, optimal_high: 30, max: 38 },
+    Turmeric: { min: 15, optimal_low: 20, optimal_high: 32, max: 38 },
+    Ginger: { min: 15, optimal_low: 20, optimal_high: 30, max: 35 },
+    Spinach: { min: 5, optimal_low: 10, optimal_high: 22, max: 30 },
+    Millet: { min: 20, optimal_low: 25, optimal_high: 38, max: 45 },
+    Groundnut: { min: 18, optimal_low: 25, optimal_high: 35, max: 42 },
+    Soybean: { min: 15, optimal_low: 20, optimal_high: 30, max: 38 },
+    Wheat: { min: 5, optimal_low: 10, optimal_high: 25, max: 32 },
+};
+
 class CropRecommender {
     constructor() {
-        // Rebalanced feature weights — soil/rainfall/season now dominant
+        // 8-Feature rebalanced weights — now includes temperature + NASA solar
         this.featureWeights = {
-            soil_crop_compat: 0.30,     // ICAR soil×crop matrix (was 0.15)
-            rainfall_fit: 0.25,          // Rainfall band scoring (was 0.05)
-            shade_tolerance: 0.15,       // Agrivoltaic shade advantage (was 0.25)
+            soil_crop_compat: 0.22,     // ICAR soil×crop matrix
+            rainfall_fit: 0.18,          // Rainfall band scoring
+            temperature_fit: 0.12,       // Live temp vs crop optimal range
+            shade_tolerance: 0.12,       // Agrivoltaic shade advantage
+            solar_shade_score: 0.10,     // NASA irradiance × panel coverage
             market_value: 0.10,          // Revenue potential
-            yield_trend: 0.10,           // Historical trend
-            water_efficiency: 0.10,      // Water need vs. soil drainage
+            yield_trend: 0.08,           // Historical trend
+            water_efficiency: 0.08,      // Water need vs. soil drainage
         };
     }
 
@@ -140,14 +158,40 @@ class CropRecommender {
 
         // ─── Feature 6: Water Efficiency (crop need vs. soil drainage) ───
         if (props.water_need === 'high') {
-            // High water crops need high retention soils
             scores.water_efficiency = soil.water_retention;
         } else if (props.water_need === 'low') {
-            // Low water crops need good drainage
             scores.water_efficiency = soil.drainage;
         } else {
-            // Medium — balanced
             scores.water_efficiency = (soil.water_retention + soil.drainage) / 2;
+        }
+
+        // ─── Feature 7: Temperature Fit (live weather) ───
+        const tempRange = TEMP_RANGES[cropName];
+        if (tempRange && conditions.temperature) {
+            const temp = conditions.temperature;
+            if (temp >= tempRange.optimal_low && temp <= tempRange.optimal_high) {
+                scores.temperature_fit = 1.0;
+            } else if (temp < tempRange.min || temp > tempRange.max) {
+                scores.temperature_fit = 0.1;
+            } else if (temp < tempRange.optimal_low) {
+                scores.temperature_fit = 0.4 + 0.6 * ((temp - tempRange.min) / (tempRange.optimal_low - tempRange.min));
+            } else {
+                scores.temperature_fit = 0.4 + 0.6 * ((tempRange.max - temp) / (tempRange.max - tempRange.optimal_high));
+            }
+        } else {
+            scores.temperature_fit = 0.6; // default if no temp data
+        }
+
+        // ─── Feature 8: NASA Solar-Shade Score ───
+        // High irradiance + high panel coverage = massive boost for shade-loving crops
+        const irradiance = conditions.solarIrradiance || 4.5;
+        const irradianceNorm = Math.min(1, irradiance / 7.0); // Normalize: 7 kWh/m²/day = max
+        if (shadowPct > 20) {
+            // Under panels: shade-loving crops get a boost proportional to solar intensity
+            scores.solar_shade_score = props.shade_tolerance * irradianceNorm;
+        } else {
+            // No panels: irrelevant — give flat score
+            scores.solar_shade_score = 0.5;
         }
 
         // ─── Weighted Final Score ───
