@@ -17,8 +17,8 @@ export default function Navbar({ title, subtitle, temperature, isNight, weatherI
     const [liveTemp, setLiveTemp] = useState<number | null>(null);
 
     useEffect(() => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-        fetch(`${apiUrl}/api/weather/current?lat=20.29&lon=85.82`)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://agrovolt-backend.onrender.com';
+        fetch(`${apiUrl}/api/weather/current?lat=20.29&lon=85.82`, { signal: AbortSignal.timeout(8000) })
             .then(r => r.json())
             .then(data => {
                 if (data.success && data.data?.temperature) setLiveTemp(data.data.temperature);
