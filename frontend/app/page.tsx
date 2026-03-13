@@ -63,7 +63,7 @@ export default function Home() {
 
       {/* ─── Navigation ─── */}
       <nav style={{
-        background: 'rgba(255,255,255,0.85)',
+        background: 'rgba(255,255,255,0.90)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--color-green-100)',
@@ -74,44 +74,52 @@ export default function Home() {
         <div style={{
           maxWidth: 1200,
           margin: '0 auto',
-          padding: '0.875rem 1.5rem',
+          padding: '0.75rem 1.25rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: '0.5rem',
         }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.75rem' }}>🌾⚡</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
+            <span style={{ fontSize: '1.375rem', lineHeight: 1 }}>🌾⚡</span>
             <span style={{
-              fontSize: '1.5rem',
+              fontSize: 'clamp(1rem, 5vw, 1.375rem)',
               fontWeight: 800,
               fontFamily: 'var(--font-display)',
               background: 'linear-gradient(135deg, var(--color-green-700), var(--color-blue-600))',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
             }}>AgroVolt AI</span>
           </div>
 
           {/* Right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--color-gray-500)' }}>
-              Backend:{' '}
-              <span style={{
-                fontWeight: 700,
-                color: backendStatus.includes('✅') ? 'var(--color-green-600)' : 'var(--color-red-500)',
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexShrink: 0 }}>
+            {/* Backend status — hidden on mobile */}
+            {backendStatus !== 'Checking...' && (
+              <span className="hidden sm:flex" style={{
+                fontSize: '0.6875rem', fontWeight: 600, whiteSpace: 'nowrap' as const,
+                padding: '0.2rem 0.5rem', borderRadius: 999,
+                background: backendStatus.includes('✅') ? 'var(--color-green-50)' : 'var(--color-red-50)',
+                color: backendStatus.includes('✅') ? 'var(--color-green-700)' : 'var(--color-red-600)',
+                border: `1px solid ${backendStatus.includes('✅') ? 'var(--color-green-200)' : 'var(--color-red-200)'}`,
               }}>
                 {backendStatus}
               </span>
-            </span>
+            )}
             <Link href="/login" style={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--color-green-600)',
-              textDecoration: 'none',
+              fontSize: '0.875rem', fontWeight: 600,
+              color: 'var(--color-green-600)', textDecoration: 'none',
+              padding: '0.35rem 0.625rem', whiteSpace: 'nowrap' as const,
             }}>
               Login
             </Link>
-            <Link href="/register" className="btn-primary">
+            <Link href="/register" className="btn-primary" style={{
+              fontSize: 'clamp(0.75rem, 3vw, 0.875rem)',
+              padding: '0.375rem 0.875rem',
+              whiteSpace: 'nowrap' as const,
+            }}>
               Get Started
             </Link>
           </div>
