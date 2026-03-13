@@ -1180,7 +1180,7 @@
                 "disease": "Black Rot",
                 "pathogen": "Guignardia bidwellii",
                 "class": "fungal",
-                "plantdoc_class": "Grape_Black_rot",
+                "plantdoc_class": "grape leaf black rot",
                 "confidence_range": [
                     0.78,
                     0.91

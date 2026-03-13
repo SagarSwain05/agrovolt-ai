@@ -410,7 +410,7 @@ export default function ScanPage() {
         if (!image) { setScanError('Please upload or capture an image first.'); return; }
         setScanning(true); setResult(null); setScanError(null);
 
-        // Validate image content (is it actually a plant/panel?)
+        // Validate image content (reject clear non-plant images like human faces)
         const validation = await validateImageLocally(image);
         if (!validation.valid) {
             setScanError(validation.reason);
@@ -418,9 +418,16 @@ export default function ScanPage() {
             return;
         }
 
-        // Gatekeeper Pattern: Enforce that the user is scanning the correct subject for their active mode
-        if (validation.valid && validation.type !== mode) {
-            setScanError(`You are currently in ${mode === 'crop' ? 'Crop' : 'Panel'} mode, but the AI identified this as a ${validation.type === 'crop' ? 'crop leaf' : 'solar panel'}. Please switch modes or upload the correct image.`);
+        // NOTE: Removed strict mode gatekeeper — diseased/spotted leaves with heavy brown areas
+        // were being classified as 'unknown' and rejected. Roboflow is the final arbiter.
+        // Only reject if the local validator is VERY confident it's the wrong type (panel in crop mode etc.)
+        if (validation.type === 'panel' && mode === 'crop') {
+            setScanError('This looks like a solar panel, not a crop leaf. Please switch to Panel mode or upload a crop leaf photo.');
+            setScanning(false);
+            return;
+        }
+        if (validation.type === 'crop' && mode === 'panel') {
+            setScanError('This looks like a crop leaf, not a solar panel. Please switch to Crop Disease mode or upload a panel photo.');
             setScanning(false);
             return;
         }

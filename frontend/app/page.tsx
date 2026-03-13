@@ -10,15 +10,22 @@ export default function Home() {
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
     const backendRoot = apiBase.replace('/api', '');
-    fetch(backendRoot + '/')
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    fetch(backendRoot + '/', { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
+        clearTimeout(timer);
         setBackendStatus('✅ Connected');
         setBackendData(data);
       })
       .catch(() => {
+        clearTimeout(timer);
         setBackendStatus('❌ Not Running');
       });
+
+    return () => { clearTimeout(timer); controller.abort(); };
   }, []);
 
   const features = [

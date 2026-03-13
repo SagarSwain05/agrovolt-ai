@@ -82,7 +82,8 @@ function generateLocalToken(userId: string): string {
 // ═══ TRY BACKEND, FALLBACK TO LOCAL ═══
 async function tryBackendLogin(email: string, password: string): Promise<{ user: User; token: string } | null> {
   try {
-    const res = await fetch('http://localhost:5001/api/auth/login', {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -112,7 +113,8 @@ async function tryBackendLogin(email: string, password: string): Promise<{ user:
 
 async function tryBackendRegister(data: RegisterData): Promise<{ user: User; token: string } | null> {
   try {
-    const res = await fetch('http://localhost:5001/api/auth/register', {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
