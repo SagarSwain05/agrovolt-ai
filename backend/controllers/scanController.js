@@ -285,88 +285,57 @@ exports.scanCropDisease = async (req, res) => {
 
         // ── MODEL CONFIGURATION (from .env) ──────────────────────
         const API_KEY = process.env.ROBOFLOW_API_KEY;
-        const MODEL_1 = process.env.ROBOFLOW_PLANT_MODEL_1 || 'plantdoc-rcmou-konc0/1';
-        const URL_1 = (process.env.ROBOFLOW_PLANT_URL_1 || 'https://serverless.roboflow.com').replace(/\/$/, '');
-        const MODEL_2 = process.env.ROBOFLOW_PLANT_MODEL_2 || 'plant-disease-nzhj9-qqsvb/1';
-        const URL_2 = (process.env.ROBOFLOW_PLANT_URL_2 || 'https://serverless.roboflow.com').replace(/\/$/, '');
+        const MODEL_ID = process.env.ROBOFLOW_MODEL_ID || 'plantdoc-rcmou-konc0/1';
+        const MODEL_URL = (process.env.ROBOFLOW_API_URL || 'https://serverless.roboflow.com').replace(/\/$/, '');
 
         if (!API_KEY) {
             return res.status(500).json({ success: false, message: 'ROBOFLOW_API_KEY not configured in .env' });
         }
 
-        let predictions = [];
-        let modelsUsed = [];
+        let modelsUsed = ['PlantDoc Detection'];
 
-        // ── DUAL-MODEL PARALLEL CALL ─────────────────────────────
-        const [r1, r2] = await Promise.allSettled([
-            callRoboflow(URL_1, MODEL_1, base64Image, API_KEY),
-            callRoboflow(URL_2, MODEL_2, base64Image, API_KEY),
-        ]);
-
-        // Model 1 — Object Detection results
-        if (r1.status === 'fulfilled' && r1.value.length > 0) {
-            const preds = r1.value.map(p => ({ ...p, _source: 'PlantDoc-Detection' }));
-            predictions = predictions.concat(preds);
-            modelsUsed.push('PlantDoc Detection');
-            console.log(`[Scan] Model 1 (PlantDoc) → ${r1.value.length} predictions:`, r1.value.map(p => p.class + '(' + Math.round(p.confidence * 100) + '%)').join(', '));
-        } else {
-            const reason = r1.status === 'rejected'
-                ? `HTTP ${r1.reason?.response?.status || 'N/A'}: ${r1.reason?.response?.data?.message || r1.reason?.message}`
-                : '0 predictions';
-            console.log(`[Scan] Model 1 result: ${reason}`);
+        // ── SINGLE-MODEL CALL — PlantDoc serverless ───────────────
+        let rawPredictions = [];
+        let plantDocResult = null;
+        try {
+            rawPredictions = await callRoboflow(MODEL_URL, MODEL_ID, base64Image, API_KEY);
+            plantDocResult = { status: 'fulfilled', value: rawPredictions };
+            console.log(`[Scan] PlantDoc → ${rawPredictions.length} predictions:`,
+                rawPredictions.map(p => p.class + '(' + Math.round(p.confidence * 100) + '%)').join(', ') || '(none)');
+        } catch (rfErr) {
+            plantDocResult = { status: 'rejected', reason: rfErr };
+            console.log(`[Scan] PlantDoc error: HTTP ${rfErr.response?.status || 'N/A'} — ${rfErr.response?.data?.message || rfErr.message}`);
         }
 
-        // Model 2 — Segmentation results
-        if (r2.status === 'fulfilled' && r2.value.length > 0) {
-            const preds = r2.value
-                .map(normaliseSegmentationPred)
-                .map(p => ({ ...p, _source: 'PlantDisease-Segmentation' }));
-            predictions = predictions.concat(preds);
-            modelsUsed.push('PlantDisease Segmentation');
-            console.log(`[Scan] Model 2 (Segmentation) → ${r2.value.length} predictions:`, r2.value.map(p => p.class + '(' + Math.round(p.confidence * 100) + '%)').join(', '));
-        } else {
-            const reason = r2.status === 'rejected'
-                ? `HTTP ${r2.reason?.response?.status || 'N/A'}: ${r2.reason?.response?.data?.message || r2.reason?.message}`
-                : '0 predictions';
-            console.log(`[Scan] Model 2 result: ${reason}`);
-        }
+        let predictions = rawPredictions.map(p => ({ ...p, _source: 'PlantDoc-Detection' }));
 
-        // ── BOTH MODELS RETURNED ZERO PREDICTIONS ────────────────
-        // This means the image IS a valid image but neither model detected any plant/disease.
-        // Return "Healthy / No disease detected" — NOT a random disease.
+        // ── ZERO PREDICTIONS ──────────────────────────────────────
         if (predictions.length === 0) {
-            console.log(`[Scan] Both models returned 0 predictions for this image.`);
+            console.log(`[Scan] PlantDoc returned 0 predictions.`);
 
-            // Check if both API calls actually failed (network error, not just 0 preds)
-            const m1Failed = r1.status === 'rejected';
-            const m2Failed = r2.status === 'rejected';
-
-            if (m1Failed && m2Failed) {
-                // Both APIs errored — report the error, don't guess
+            if (plantDocResult.status === 'rejected') {
+                // API errored — report clearly
                 return res.json({
                     success: true,
                     data: {
-                        crop: cropName, disease: 'API Unavailable', confidence: 0,
+                        crop: cropName, disease: 'Vision API Error', confidence: 0,
                         severity: 'None', affectedArea: '0%',
-                        symptoms: 'Both Roboflow models failed to respond. This is a temporary issue.',
-                        treatment: ['Please try again in a few moments.', 'Check your internet connection.'],
+                        symptoms: 'Roboflow PlantDoc model failed to respond. This is a temporary network issue.',
+                        treatment: ['Please try again in a few moments.', 'Ensure the backend is connected to internet.'],
                         organic: 'N/A', spread: 'N/A', yieldLoss: 0, rupeeRisk: 0,
                         bboxes: [],
                         pipeline: [
-                            { stage: 1, name: 'Roboflow Model 1', result: '❌ ' + (r1.reason?.message || 'Failed'), conf: 0, ms: 0 },
-                            { stage: 2, name: 'Roboflow Model 2', result: '❌ ' + (r2.reason?.message || 'Failed'), conf: 0, ms: 0 },
+                            { stage: 1, name: 'PlantDoc Detection', result: '❌ ' + (plantDocResult.reason?.message || 'API Failed'), conf: 0, ms: 0 },
                         ],
                         apiError: true,
                     }
                 });
             }
 
-            // APIs worked but found nothing → check if image is even a plant
             const cropUpper = cropName.charAt(0).toUpperCase() + cropName.slice(1);
             const cropData = visionKB.crop_species_signatures[cropUpper] || visionKB.crop_species_signatures['Tomato'];
 
-            // If the image wasn't identified as a crop by our validator,
-            // 0 predictions means "this isn't a plant" — NOT "healthy plant"
+            // 0 predictions on non-crop image
             if (validation.type !== 'crop') {
                 console.log(`[Scan] 0 predictions + validation type="${validation.type}" → Not a crop leaf`);
                 const notPlantResult = {
@@ -378,7 +347,7 @@ exports.scanCropDisease = async (req, res) => {
                     bboxes: [],
                     pipeline: [
                         { stage: 1, name: 'Image Validator', result: 'Not identified as crop', conf: 0, ms: 12 },
-                        { stage: 2, name: 'Roboflow (both models)', result: '0 plant/disease detections', conf: 0, ms: 220 },
+                        { stage: 2, name: 'PlantDoc Detection', result: '0 plant/disease detections', conf: 0, ms: 220 },
                     ],
                     rejected: true,
                     rejectionReason: 'No plant material detected in this image.',
@@ -387,42 +356,25 @@ exports.scanCropDisease = async (req, res) => {
                 return res.json({ success: true, data: notPlantResult });
             }
 
-            // Image WAS identified as a crop → 0 predictions means genuinely healthy
+            // Image IS a crop → 0 predictions = genuinely healthy
             const healthyResult = {
                 crop: cropUpper, family: cropData.family, disease: 'Healthy', pathogen: 'None detected', cls: 'none',
                 confidence: 95,
                 severity: 'Normal', affectedArea: '0%',
-                symptoms: 'No disease patterns detected by either AI model. Foliage appears healthy.',
+                symptoms: 'No disease patterns detected by PlantDoc AI. Foliage appears healthy.',
                 treatment: ['Continue regular irrigation', 'Maintain current fertilization schedule', 'Monitor for pests weekly'],
                 organic: 'Preventive neem oil spray every 14 days', spread: 'N/A',
                 yieldLoss: 0, rupeeRisk: 0, bboxes: [],
                 pipeline: [
-                    { stage: 1, name: 'PlantDoc Detection', result: 'No disease objects found', conf: null, ms: Math.round((r1.value?.time || 200) * 1) },
-                    { stage: 2, name: 'PlantDisease Segmentation', result: 'No disease regions found', conf: null, ms: Math.round((r2.value?.time || 200) * 1) },
-                    { stage: 3, name: 'Verdict', result: '✅ Healthy — 0 detections across both models', conf: 95, ms: 5 },
+                    { stage: 1, name: 'PlantDoc Detection', result: 'No disease objects found', conf: null, ms: 220 },
+                    { stage: 2, name: 'Verdict', result: '✅ Healthy — 0 disease detections', conf: 95, ms: 5 },
                 ],
             };
             setCache(cacheKey, healthyResult);
             return res.json({ success: true, data: healthyResult });
         }
 
-        // ── ENSEMBLE CONFIDENCE BOOST ────────────────────────────
-        // When both models detect the same class, boost confidence ≤ 15%
-        const g1 = predictions.filter(p => p._source === 'PlantDoc-Detection');
-        const g2 = predictions.filter(p => p._source === 'PlantDisease-Segmentation');
-        predictions = predictions.map(p => {
-            const other = p._source === 'PlantDoc-Detection' ? g2 : g1;
-            const pc = p.class.toLowerCase().replace(/[_\s-]/g, '');
-            const agreed = other.find(o => {
-                const oc = o.class.toLowerCase().replace(/[_\s-]/g, '');
-                return oc.slice(0, 6) === pc.slice(0, 6) || pc.includes(oc.slice(0, 4)) || oc.includes(pc.slice(0, 4));
-            });
-            return agreed
-                ? { ...p, confidence: Math.min(0.99, p.confidence * 1.15), _ensemble: true }
-                : p;
-        });
-
-        // ── NMS across merged predictions ────────────────────────
+        // ── NMS — remove overlapping detections ─────────────────
         predictions = applyNMS(predictions, 0.45);
 
         // ── CONFIDENCE FILTER ────────────────────────────────────
@@ -442,7 +394,7 @@ exports.scanCropDisease = async (req, res) => {
         // ── BUILD FINAL RESPONSE ─────────────────────────────────
         const cropUpper = cropName.charAt(0).toUpperCase() + cropName.slice(1);
         const cropData = visionKB.crop_species_signatures[cropUpper] || visionKB.crop_species_signatures['Tomato'];
-        const pipelineLbl = `Roboflow Dual-Ensemble: ${modelsUsed.join(' + ')}`;
+        const pipelineLbl = 'PlantDoc Detection (serverless.roboflow.com)';
 
         let result;
 
@@ -516,7 +468,7 @@ exports.scanCropDisease = async (req, res) => {
                     pipeline: [
                         { stage: 1, name: 'Subject Classifier', result: `${cropUpper} (${cropData.family})`, conf: 92, ms: 32 },
                         { stage: 2, name: pipelineLbl, result: kbMatch.disease, conf: confPct, ms: 240 },
-                        { stage: 3, name: 'Ensemble Filter + NMS', result: primary._ensemble ? 'Both models AGREED ✓' : 'Single-model detection', conf: null, ms: 14 },
+                        { stage: 3, name: 'NMS Filter', result: 'Best detection selected', conf: null, ms: 8 },
                     ],
                 };
             } else {
@@ -539,8 +491,8 @@ exports.scanCropDisease = async (req, res) => {
                     bboxes,
                     pipeline: [
                         { stage: 1, name: 'Subject Classifier', result: `${detectedCrop} (auto-detected)`, conf: 92, ms: 32 },
-                        { stage: 2, name: pipelineLbl, result: `${diseaseName} (not in KB)`, conf: confPct, ms: 240 },
-                        { stage: 3, name: 'KB Mapper', result: 'No exact match — raw Roboflow class shown', conf: null, ms: 8 },
+                        { stage: 2, name: pipelineLbl, result: `${diseaseName}`, conf: confPct, ms: 240 },
+                        { stage: 3, name: 'KB Mapper', result: 'No exact KB match — raw class shown', conf: null, ms: 8 },
                     ],
                 };
             }

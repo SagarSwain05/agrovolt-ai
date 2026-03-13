@@ -20,10 +20,9 @@ const CROP_DB = visionKB.crop_disease_db || {};
 
 class DiseaseDetector {
     constructor() {
-        this.apiKey = process.env.ROBOFLOW_API_KEY || 'mCLodEga0a4myt2CI8SJ';
-        this.model1 = 'plantdoc-rcmou-konc0/1';     // PlantDoc Detection
-        this.model2 = 'plant-disease-nzhj9-qqsvb/1'; // Plant Disease Segmentation
-        this.baseUrl = 'https://serverless.roboflow.com';
+        this.apiKey = process.env.ROBOFLOW_API_KEY;
+        this.modelId = process.env.ROBOFLOW_MODEL_ID || 'plantdoc-rcmou-konc0/1'; // Single PlantDoc model
+        this.baseUrl = (process.env.ROBOFLOW_API_URL || 'https://serverless.roboflow.com').replace(/\/$/, '');
     }
 
     /**
@@ -45,33 +44,21 @@ class DiseaseDetector {
                 base64Image = imageInput.replace(/^data:image\/\w+;base64,/, '');
             }
 
-            // 2. Call BOTH Roboflow models in parallel (no hardcoding, no simulation)
-            const [r1, r2] = await Promise.allSettled([
-                axios({
-                    method: 'POST',
-                    url: `${this.baseUrl}/${this.model1}`,
-                    params: { api_key: this.apiKey, confidence: 40, overlap: 30 },
-                    data: base64Image,
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    timeout: 25000,
-                }),
-                axios({
-                    method: 'POST',
-                    url: `${this.baseUrl}/${this.model2}`,
-                    params: { api_key: this.apiKey, confidence: 40, overlap: 30 },
-                    data: base64Image,
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    timeout: 25000,
-                }),
-            ]);
-
-            // 3. Merge predictions from both models
+            // 2. Call PlantDoc (single model — multi-crop Object Detection)
             let predictions = [];
-            if (r1.status === 'fulfilled' && r1.value.data.predictions) {
-                predictions.push(...r1.value.data.predictions.map(p => ({ ...p, source: 'PlantDoc' })));
-            }
-            if (r2.status === 'fulfilled' && r2.value.data.predictions) {
-                predictions.push(...r2.value.data.predictions.map(p => ({ ...p, source: 'PlantDisease' })));
+            try {
+                const r = await axios({
+                    method: 'POST',
+                    url: `${this.baseUrl}/${this.modelId}`,
+                    params: { api_key: this.apiKey, confidence: 40, overlap: 30 },
+                    data: base64Image,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    timeout: 25000,
+                });
+                predictions = (r.data.predictions || []).map(p => ({ ...p, source: 'PlantDoc' }));
+                console.log(`[DiseaseDetector] PlantDoc → ${predictions.length} predictions`);
+            } catch (rfErr) {
+                console.error('[DiseaseDetector] Roboflow error:', rfErr.response?.data || rfErr.message);
             }
 
             // 4. Filter out generic detections (just "leaf", "plant")
