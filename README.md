@@ -224,8 +224,7 @@ We welcome contributions from the community! Please read our contributing guidel
 
 For questions, partnerships, or support:
 - **Email:** [sagar23swain@gmail.com]
-- **Website:** [www.agrovolt.ai]
-- **Twitter:** [@AgroVoltAI]
+- **Website:** https://agrovolt-ai.vercel.app/
 
 ## 📜 License
 
