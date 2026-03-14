@@ -46,7 +46,7 @@ Vernacular offline voice assistant:
 - Multi-modal support (Voice/Text)
 - Hindi and Odia language support
 - Works offline for 72 hours
-- Designed for illiterate farmers
+- Designed for rural farmers
 
 ### 4. Bio-Solar Intelligence Engine
 AI-powered microclimate optimization:
