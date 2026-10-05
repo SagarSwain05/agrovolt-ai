@@ -45,3 +45,6 @@ backend/check_*.js
 
 # Gemini artifacts
 .gemini/
+
+# Env template is safe to commit
+!.env.example

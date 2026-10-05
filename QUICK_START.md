@@ -1,212 +1,50 @@
-# 🚀 AgroVolt AI - Quick Start Guide
+# AgroVolt AI — Quick Start
 
-## 🎯 What You Have
+## Try it live
 
-A **production-ready backend** for India's first Bio-Solar Intelligence Platform!
+https://agrovolt-ai.vercel.app. Log in with a demo account (password `Demo@2026`):
 
-### ✅ Fully Functional Features
-- User Authentication (Register/Login)
-- Farm Management
-- Crop Recommendations (AI-powered)
-- Solar Optimization
-- Disease Detection (Mock AI)
-- Carbon Credit Wallet
-- Market Intelligence
-- Complete Dashboard
+| Account | Shows |
+|---|---|
+| `farmer@agrovolt.demo` | Odia farmer, Khordha, 5 kW over tomato + turmeric — ledger, disease alerts, Sahayak in Odia |
+| `kisan@agrovolt.demo` | Hindi farmer, Cuttack, 3 kW over rice |
+| `epc@agrovolt.demo` | Solar EPC partner portal (fleet of both farms, API keys, webhooks) |
 
----
+The first request after ~15 idle minutes can take up to a minute while the free Render backend wakes up.
 
-## ⚡ 5-Minute Setup
+## Run locally
 
-### 1. Install MongoDB
+Prerequisites: Node 20+, MongoDB (local or Atlas).
+
 ```bash
-# macOS
-brew install mongodb-community
-brew services start mongodb-community
-
-# Linux
-sudo apt-get install mongodb
-sudo systemctl start mongod
-```
-
-### 2. Start Backend
-```bash
+# 1. Backend
 cd backend
+cp .env.example .env            # fill MONGO_URI, JWT_SECRET; add keys you have
 npm install
-npm run dev
-```
+npm run dev                     # http://localhost:5001
 
-✅ Backend running on: **http://localhost:5000**
-
-### 3. Test API
-```bash
-# Register a user
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Farmer",
-    "email": "farmer@test.com",
-    "password": "password123",
-    "farmName": "Test Farm",
-    "farmSize": 5,
-    "location": {
-      "latitude": 20.2961,
-      "longitude": 85.8245,
-      "state": "Odisha",
-      "district": "Khordha"
-    }
-  }'
-```
-
-Save the token from response!
-
-```bash
-# Get Dashboard (replace YOUR_TOKEN)
-curl -X GET http://localhost:5000/api/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
----
-
-## 📱 Available APIs
-
-### Authentication
-- `POST /api/auth/register` - Create account
-- `POST /api/auth/login` - Login
-- `GET /api/auth/me` - Get profile
-
-### Dashboard
-- `GET /api/dashboard` - Complete farm overview
-
-### Crop Intelligence
-- `POST /api/crop/recommend` - Get crop suggestions
-- `POST /api/crop` - Add crop
-- `GET /api/crop` - List crops
-
-### Solar Optimization
-- `GET /api/solar/optimize` - Get optimization data
-- `POST /api/solar/data` - Log solar data
-- `GET /api/solar/history` - View history
-
-### Disease Detection
-- `POST /api/disease/scan` - Upload crop image
-- `GET /api/disease/history` - View scans
-
-### Carbon Wallet
-- `GET /api/carbon/wallet` - View wallet
-- `POST /api/carbon/calculate` - Calculate credits
-- `POST /api/carbon/withdraw` - Withdraw credits
-
-### Market Intelligence
-- `GET /api/market/prices` - Get mandi prices
-- `GET /api/market/trends` - View price trends
-- `GET /api/market/recommend` - Selling advice
-
----
-
-## 🎨 Frontend (Coming Soon)
-
-Frontend foundation is ready with:
-- Next.js 14
-- TypeScript
-- Tailwind CSS
-- All packages installed
-
-To start frontend development:
-```bash
+# 2. Frontend (new terminal)
 cd frontend
 npm install
-npm run dev
+NEXT_PUBLIC_API_URL=http://localhost:5001 npm run dev   # http://localhost:3000
 ```
 
----
+Useful local settings in `backend/.env`:
+- `EMAIL_DRY_RUN=true`: verification codes are printed in the backend log instead of emailed.
+- `DISABLE_SCHEDULER=true`: no hourly alert or market jobs.
+- Without `GEMINI_API_KEYS`, Sahayak answers with the built-in rule engine. Live data still works.
 
-## 📚 Documentation
+Seed demo accounts into your database: `node backend/scripts/seedDemo.js --apply`.
 
-- **README.md** - Project overview
-- **requirements.md** - Complete SRS (16 sections)
-- **design.md** - System architecture
-- **BUILD_INSTRUCTIONS.md** - Detailed build guide
-- **PROJECT_STATUS.md** - Current status
-- **QUICK_START.md** - This file
+## Try a sensor without hardware
 
----
+1. Settings → Field sensors → Add device → copy the key.
+2. Post a reading:
+```bash
+curl -X POST http://localhost:5001/api/v1/telemetry \
+  -H "Content-Type: application/json" -H "X-Device-Key: avk_…" \
+  -d '{"soil_moisture_pct":28,"ambient_temp":31,"humidity_pct":88,"power_w":2100,"meter_kwh_total":1520.4}'
+```
+3. The dashboard tag changes to "Hardware verified" and the reading appears live.
 
-## 🏆 What Makes This Special
-
-1. **Production-Grade** - Not a prototype
-2. **25+ API Endpoints** - All functional
-3. **Mock AI Ready** - Easy to integrate real models
-4. **Scalable Architecture** - Supports millions of users
-5. **Well Documented** - Every aspect covered
-6. **Hackathon Ready** - Demo immediately
-7. **Investor Ready** - Professional quality
-
----
-
-## 🎯 Demo Scenarios
-
-### Scenario 1: New Farmer Onboarding
-1. Register → Create farm profile
-2. Get crop recommendations
-3. View dashboard with insights
-
-### Scenario 2: Disease Detection
-1. Upload crop leaf image
-2. Get AI diagnosis
-3. Receive treatment recommendations
-
-### Scenario 3: Solar Optimization
-1. View current panel efficiency
-2. Get optimal tilt angle
-3. See projected energy gains
-
-### Scenario 4: Carbon Credits
-1. Calculate credits from solar + water savings
-2. View environmental impact
-3. Track monetary value
-
----
-
-## 🚀 Next Steps
-
-1. **Test all APIs** with Postman
-2. **Build frontend pages** using Next.js
-3. **Integrate real AI models** for disease detection
-4. **Connect external APIs** (NASA, Agmarknet)
-5. **Deploy to production**
-
----
-
-## 💡 Pro Tips
-
-- Use Postman for API testing
-- MongoDB Compass for database visualization
-- Check `backend/.env` for configuration
-- All mock data is realistic and production-ready
-- Backend can handle real production load
-
----
-
-## 📞 Support
-
-- GitHub: https://github.com/SagarSwain05/agrovolt-ai
-- Issues: Create GitHub issue
-- Docs: Check documentation files
-
----
-
-## 🎉 You're Ready!
-
-Your AgroVolt AI backend is **fully functional** and ready for:
-- ✅ Development
-- ✅ Testing
-- ✅ Demo
-- ✅ Deployment
-- ✅ Scaling
-
-**Start building the future of Indian agriculture!** 🌾⚡
-
----
-
-Built with ❤️ for Indian Farmers
+Real hardware: see `hardware/esp32-node/README.md`.
