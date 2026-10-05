@@ -64,11 +64,14 @@ async function edge(text, lang) {
 async function gemini(text, lang) {
     if (!llm.isConfigured()) throw new Error('Gemini not configured');
     const style = { or: 'Say clearly in Odia, warm and slow, for a farmer', hi: 'Say clearly in Hindi, warm and slow, for a farmer', en: 'Say clearly in Indian English, warm and slow' }[lang];
+    const t0 = Date.now();
     const r = await llm.speak(text, { voice: process.env.GEMINI_TTS_VOICE || 'Kore', style });
     if (!r) throw new Error('Gemini TTS unavailable');
+    const t1 = Date.now();
     let audio = r.audio, mimeType = r.mimeType;
     try {
         const mp3 = await require('./mp3').wavToMp3(r.audio);
+        console.log(`[tts] gemini ${r.model} synth ${t1 - t0}ms, mp3 ${Date.now() - t1}ms, ${r.audio.length}→${mp3?.length}B`);
         if (mp3?.length) { audio = mp3; mimeType = 'audio/mpeg'; }
     } catch (e) { console.error('[tts] mp3 encode:', e.message); }
     return { audio, mimeType, voice: `${r.model}/Kore`, provider: 'gemini' };
