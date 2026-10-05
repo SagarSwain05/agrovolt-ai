@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Middleware
 const allowedOrigins = [
@@ -37,10 +38,16 @@ app.use("/api/carbon", require("./routes/carbonRoutes"));
 app.use("/api/market", require("./routes/marketRoutes"));
 app.use("/api/weather", require("./routes/weatherRoutes"));
 app.use("/api/scan", require("./routes/scanRoutes"));
+app.use("/api/farm", require("./routes/farmRoutes"));
+app.use("/api/iot", require("./routes/iotRoutes"));
+app.use("/api/assistant", require("./routes/assistantRoutes"));
+app.use("/api/district", require("./routes/districtRoutes"));
+app.use("/api/schemes", require("./routes/schemeRoutes"));
+app.use("/api/reports", require("./routes/reportRoutes"));
 
 // MongoDB Connection
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, process.env.MONGO_DB_NAME ? { dbName: process.env.MONGO_DB_NAME } : {})
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ MongoDB Error:", err));
 
@@ -55,7 +62,12 @@ app.get("/", (req, res) => {
 
 // Health check
 app.get("/health", (req, res) => {
-  res.json({ status: "healthy", timestamp: new Date() });
+  res.json({
+    status: "healthy",
+    db: ["disconnected", "connected", "connecting", "disconnecting"][mongoose.connection.readyState] || "unknown",
+    assistant: process.env.GEMINI_API_KEY ? "gemini" : "rules",
+    timestamp: new Date(),
+  });
 });
 
 // Error handling middleware

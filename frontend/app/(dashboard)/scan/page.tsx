@@ -1,194 +1,17 @@
 'use client';
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { useI18n, cropKey } from '@/lib/i18n';
+import { useFarm } from '@/lib/farm';
+import { scanAPI, districtAPI, weatherAPI, cropAPI, apiError } from '@/lib/api';
+import { speak } from '@/lib/speech';
 import {
     ScanLine, Camera, Upload, Zap, AlertTriangle, CheckCircle2,
     Leaf, Sun, Microscope, Shield, Clock, Activity, FileSearch, Target,
     Eye, Cpu, CircleDollarSign, Flame, Radio, MapPin, Wind,
     AlertOctagon, TrendingDown, Crosshair, Box, Video, X,
 } from 'lucide-react';
-
-// ══════ CLIENT-SIDE VISION ENGINE (mirrors backend visionEngine.js) ══════
-const CROP_DB: Record<string, { family: string; diseases: { name: string; pathogen: string; cls: string; severity: string[]; symptoms: string; treatment: string[]; organic: string; spread: string; yieldLoss: number[]; rupeeRisk: number[] }[] }> = {
-    Tomato: {
-        family: 'Solanaceae', diseases: [
-            { name: 'Early Blight', pathogen: 'Alternaria solani', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Dark brown concentric rings on older leaves', treatment: ['Apply Mancozeb 75% WP @ 2.5g/L', 'Remove affected leaves', 'Improve air circulation', 'Avoid overhead irrigation'], organic: 'Copper fungicide or neem oil @ 5ml/L', spread: 'HIGH in humid (>80% RH)', yieldLoss: [5, 15, 40], rupeeRisk: [250, 750, 2000] },
-            { name: 'Late Blight', pathogen: 'Phytophthora infestans', cls: 'oomycete', severity: ['Moderate', 'Severe'], symptoms: 'Water-soaked lesions turning brown-black, white fungal growth', treatment: ['Apply Metalaxyl-Mancozeb @ 2.5g/L immediately', 'Destroy infected plants', 'Ensure drainage', 'Copper-based preventive'], organic: 'Bordeaux mixture 1%', spread: 'CRITICAL — can destroy crop in 7-10 days', yieldLoss: [30, 80], rupeeRisk: [1500, 4000] },
-            { name: 'Septoria Leaf Spot', pathogen: 'Septoria lycopersici', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Small circular spots with dark borders and gray centers', treatment: ['Apply Chlorothalonil @ 2g/L', 'Remove infected lower leaves', 'Mulch soil', 'Stake plants'], organic: 'Baking soda spray (1 tbsp/L)', spread: 'HIGH — bottom to top', yieldLoss: [5, 12], rupeeRisk: [250, 600] },
-            { name: 'Leaf Curl Virus', pathogen: 'ToLCV (Begomovirus)', cls: 'viral', severity: ['Moderate', 'Severe'], symptoms: 'Upward curling, stunted growth, yellow margins', treatment: ['Remove infected plants', 'Control whitefly with neem oil', 'Use resistant varieties', 'Yellow sticky traps'], organic: 'Neem oil + yellow traps', spread: 'CRITICAL via whitefly', yieldLoss: [30, 70], rupeeRisk: [1500, 3500] },
-        ]
-    },
-    Rice: {
-        family: 'Poaceae', diseases: [
-            { name: 'Blast', pathogen: 'Magnaporthe oryzae', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Diamond-shaped lesions with gray center', treatment: ['Apply Tricyclazole 75% WP @ 0.6g/L', 'Drain field, reduce N', 'Use resistant varieties', 'Maintain silicon'], organic: 'Trichoderma viride', spread: 'CRITICAL in high humidity', yieldLoss: [10, 30, 70], rupeeRisk: [200, 600, 1400] },
-            { name: 'Bacterial Leaf Blight', pathogen: 'Xanthomonas oryzae', cls: 'bacterial', severity: ['Moderate', 'Severe'], symptoms: 'Yellow-white lesions from leaf tip, wavy margins', treatment: ['Drain field', 'Apply Streptocycline @ 0.5g/L', 'Reduce N, increase K', 'Resistant varieties'], organic: 'Copper hydroxide', spread: 'HIGH in flooded+storm', yieldLoss: [15, 50], rupeeRisk: [300, 1000] },
-            { name: 'Sheath Blight', pathogen: 'Rhizoctonia solani', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Irregular greenish-gray spots on sheaths', treatment: ['Apply Hexaconazole 5% SC @ 2ml/L', 'Reduce density', 'Avoid excess N', 'Water management'], organic: 'Trichoderma harzianum', spread: 'HIGH in dense+high N', yieldLoss: [8, 20], rupeeRisk: [160, 400] },
-        ]
-    },
-    Wheat: {
-        family: 'Poaceae', diseases: [
-            { name: 'Rust (Puccinia)', pathogen: 'Puccinia triticina', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Orange-brown pustules on leaves and stems', treatment: ['Apply Propiconazole 25% EC @ 1ml/L', 'Remove volunteer plants', 'Use resistant varieties'], organic: 'Sulphur dust', spread: 'CRITICAL — airborne 100s of km', yieldLoss: [5, 20, 50], rupeeRisk: [120, 480, 1200] },
-            { name: 'Powdery Mildew', pathogen: 'Blumeria graminis', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'White powdery patches on leaves', treatment: ['Apply Carbendazim 50% WP @ 1g/L', 'Ensure spacing', 'Reduce N overuse'], organic: 'Milk spray or baking soda', spread: 'Moderate in cool humid', yieldLoss: [5, 15], rupeeRisk: [120, 360] },
-        ]
-    },
-    Potato: {
-        family: 'Solanaceae', diseases: [
-            { name: 'Late Blight', pathogen: 'Phytophthora infestans', cls: 'oomycete', severity: ['Moderate', 'Severe'], symptoms: 'Water-soaked dark patches, white fungal growth', treatment: ['Apply Cymoxanil+Mancozeb immediately', 'Destroy infected plants', 'Hill up tubers', 'Spray every 7 days'], organic: 'Bordeaux mixture 1%', spread: 'CRITICAL — Irish Famine pathogen', yieldLoss: [20, 70], rupeeRisk: [400, 1400] },
-            { name: 'Early Blight', pathogen: 'Alternaria solani', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Dark brown concentric ring lesions on older leaves', treatment: ['Apply Mancozeb @ 2.5g/L', 'Remove infected leaves', 'Ensure nutrition'], organic: 'Copper oxychloride', spread: 'HIGH warm humid', yieldLoss: [5, 15], rupeeRisk: [100, 300] },
-        ]
-    },
-    Grape: {
-        family: 'Vitaceae', diseases: [
-            { name: 'Downy Mildew', pathogen: 'Plasmopara viticola', cls: 'oomycete', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Yellow oil spots on upper surface, white downy growth below', treatment: ['Apply Metalaxyl-Mancozeb @ 2.5g/L', 'Improve ventilation', 'Remove infected shoots'], organic: 'Copper hydroxide', spread: 'HIGH in rainy season', yieldLoss: [5, 25, 60], rupeeRisk: [200, 1000, 2400] },
-            { name: 'Black Rot', pathogen: 'Guignardia bidwellii', cls: 'fungal', severity: ['Moderate', 'Severe'], symptoms: 'Brown circular spots, mummified black berries', treatment: ['Myclobutanil before bloom', 'Remove mummified fruit', 'Prune for air flow'], organic: 'Lime sulfur dormant spray', spread: 'HIGH after warm rain', yieldLoss: [15, 50], rupeeRisk: [600, 2000] },
-        ]
-    },
-    Apple: {
-        family: 'Rosaceae', diseases: [
-            { name: 'Apple Scab', pathogen: 'Venturia inaequalis', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Olive-green to brown velvety spots on leaves and fruit', treatment: ['Apply Captan 50% WP @ 2g/L', 'Rake fallen leaves', 'Prune for circulation'], organic: 'Lime sulfur + sanitation', spread: 'HIGH in wet spring', yieldLoss: [5, 20, 45], rupeeRisk: [300, 1200, 2700] },
-            { name: 'Cedar Apple Rust', pathogen: 'Gymnosporangium', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Bright orange-yellow spots on upper leaf surface', treatment: ['Myclobutanil early spring', 'Remove cedar hosts', 'Resistant varieties'], organic: 'Neem oil', spread: 'Moderate', yieldLoss: [5, 15], rupeeRisk: [300, 900] },
-        ]
-    },
-    Maize: {
-        family: 'Poaceae', diseases: [
-            { name: 'Fall Armyworm', pathogen: 'Spodoptera frugiperda', cls: 'pest', severity: ['Moderate', 'Severe'], symptoms: 'Ragged feeding holes in whorl, frass', treatment: ['Emamectin benzoate 5% SG @ 0.4g/L', 'Release Trichogramma', 'Apply morning/evening', 'Scout weekly'], organic: 'Neem oil + Bt spray + sand+lime in whorl', spread: 'CRITICAL — migratory, 100km/night', yieldLoss: [20, 60], rupeeRisk: [400, 1200] },
-            { name: 'Northern Leaf Blight', pathogen: 'Exserohilum turcicum', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Long elliptical gray-green lesions (3-15 cm)', treatment: ['Mancozeb @ 2.5g/L', 'Resistant hybrids', 'Rotate crops', 'Remove residue'], organic: 'Trichoderma', spread: 'HIGH humid', yieldLoss: [5, 20], rupeeRisk: [100, 400] },
-        ]
-    },
-    Coffee: {
-        family: 'Rubiaceae', diseases: [
-            { name: 'Coffee Leaf Rust', pathogen: 'Hemileia vastatrix', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Orange-yellow powdery pustules on leaf undersides', treatment: ['Copper hydroxide @ 3g/L', 'Prune for light', 'Systemic fungicide', 'Resistant varieties (Catimor)'], organic: 'Bordeaux mixture + shade', spread: 'CRITICAL — devastated Sri Lanka 1870s', yieldLoss: [10, 30, 60], rupeeRisk: [1000, 3000, 6000] },
-        ]
-    },
-    Cotton: {
-        family: 'Malvaceae', diseases: [
-            { name: 'Bollworm', pathogen: 'Helicoverpa armigera', cls: 'pest', severity: ['Moderate', 'Severe'], symptoms: 'Bore holes in bolls, frass, shedding', treatment: ['Chlorantraniliprole 18.5% SC', 'Pheromone traps', 'Release Trichogramma', 'Bt cotton'], organic: 'Neem oil + HaNPV', spread: 'CRITICAL — India #1 cotton pest', yieldLoss: [15, 50], rupeeRisk: [900, 3000] },
-        ]
-    },
-    Citrus: {
-        family: 'Rutaceae', diseases: [
-            { name: 'Citrus Canker', pathogen: 'Xanthomonas citri', cls: 'bacterial', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Raised brown cork-like lesions with yellow halos', treatment: ['Copper oxychloride @ 3g/L', 'Prune and burn', 'Windbreak', 'Disease-free nursery stock'], organic: 'Bordeaux paste', spread: 'HIGH in monsoon storms', yieldLoss: [5, 15, 40], rupeeRisk: [300, 900, 2400] },
-            { name: 'Citrus Greening (HLB)', pathogen: 'Ca. Liberibacter asiaticus', cls: 'bacterial', severity: ['Severe'], symptoms: 'Asymmetric blotchy mottling, lopsided fruit', treatment: ['Remove and BURN infected trees', 'Control psyllid aggressively', 'Certified nursery stock', 'NO CURE exists'], organic: 'Neem oil for psyllid + tree removal', spread: 'CRITICAL — incurable, worldwide', yieldLoss: [50], rupeeRisk: [5000] },
-        ]
-    },
-    Turmeric: {
-        family: 'Zingiberaceae', diseases: [
-            { name: 'Rhizome Rot', pathogen: 'Pythium spp.', cls: 'oomycete', severity: ['Moderate', 'Severe'], symptoms: 'Yellowing pseudostems, water-soaked rhizomes', treatment: ['Metalaxyl soil drench @ 2g/L', 'Improve drainage', 'Destroy infected rhizomes', 'Trichoderma viride'], organic: 'Trichoderma + Pseudomonas seed treatment', spread: 'HIGH in waterlogged', yieldLoss: [20, 60], rupeeRisk: [1600, 4800] },
-            { name: 'Leaf Spot', pathogen: 'Colletotrichum capsici', cls: 'fungal', severity: ['Mild', 'Moderate'], symptoms: 'Brown oval spots with yellow halos', treatment: ['Carbendazim 50% WP @ 1g/L', 'Remove affected leaves', 'Spacing', 'No overhead irrigation'], organic: 'Neem oil 5ml/L', spread: 'Moderate', yieldLoss: [5, 15], rupeeRisk: [400, 1200] },
-        ]
-    },
-    Mango: {
-        family: 'Anacardiaceae', diseases: [
-            { name: 'Anthracnose', pathogen: 'Colletotrichum gloeosporioides', cls: 'fungal', severity: ['Mild', 'Moderate', 'Severe'], symptoms: 'Black spots on flowers and fruit, blossom blight', treatment: ['Carbendazim @ 1g/L', 'Pre-bloom copper spray', 'Hot water fruit dip (52°C, 5min)', 'Prune dead wood'], organic: 'Copper + Trichoderma', spread: 'HIGH in humid monsoon', yieldLoss: [5, 20, 40], rupeeRisk: [200, 800, 1600] },
-        ]
-    },
-};
-
-const PANEL_DB = [
-    { defect: 'Dust Accumulation', severity: 'Low', effLoss: [3, 8], dailyLoss: [25, 65], symptoms: 'Uniform layer of fine particulate on glass', action: ['Clean with soft cloth and water', 'Schedule cleaning every 2 weeks', 'Apply anti-soiling coating'], method: 'RGB Histogram Analysis' },
-    { defect: 'Micro-Crack (Snail Trail)', severity: 'High', effLoss: [10, 20], dailyLoss: [85, 170], symptoms: 'Silver/brown lines across cell surfaces', action: ['Mark for replacement', 'Monitor with inverter data', 'File warranty claim', 'Do NOT attempt field repair'], method: 'RGB Edge Detection + IR Thermal' },
-    { defect: 'Hot Spot', severity: 'Critical', effLoss: [15, 30], dailyLoss: [125, 250], symptoms: 'Localized overheating, browning/yellowing of cells', action: ['⚠️ DISCONNECT — FIRE RISK', 'Check solder joint failure', 'Replace panel', 'Inspect adjacent panels'], method: 'IR Thermal Imaging' },
-    { defect: 'Bird Droppings', severity: 'Medium', effLoss: [5, 12], dailyLoss: [40, 100], symptoms: 'Localized opaque white/brown deposits', action: ['Clean with warm water', 'Install deterrent spikes', 'Anti-perch wire'], method: 'RGB Segmentation' },
-    { defect: 'Delamination', severity: 'High', effLoss: [8, 18], dailyLoss: [65, 150], symptoms: 'Bubbles or cloudy areas, moisture ingress', action: ['Schedule replacement', 'Monitor degradation', 'Check warranty'], method: 'RGB + UV Fluorescence' },
-    { defect: 'PID', severity: 'High', effLoss: [10, 30], dailyLoss: [85, 250], symptoms: 'Consistent power loss, no visible damage', action: ['Check grounding', 'Install PID recovery box', 'Replace ground fault'], method: 'IV Curve + EL Imaging' },
-    { defect: 'Vegetation Shading', severity: 'Medium', effLoss: [5, 25], dailyLoss: [40, 210], symptoms: 'Partial shadow from nearby trees/grass', action: ['Trim vegetation immediately', 'Quarterly vegetation management', 'Panel height adjustment'], method: 'RGB Shadow Mapping' },
-];
-
-const OUTBREAK_ALERTS = [
-    { disease: 'Fall Armyworm', crop: 'Maize', date: '2026-03-05', dist_km: 12, dir: 'NW', severity: 'Severe', windRisk: 'HIGH — strong NW winds' },
-    { disease: 'Late Blight', crop: 'Tomato', date: '2026-03-02', dist_km: 8, dir: 'SE', severity: 'Moderate', windRisk: 'LOW — no rain' },
-    { disease: 'Rice Blast', crop: 'Rice', date: '2026-02-28', dist_km: 25, dir: 'E', severity: 'Mild', windRisk: 'MODERATE — humid' },
-];
-
-const RECENT_SCANS = [
-    { name: 'Tomato Leaf', date: '2026-03-07', result: 'Healthy', confidence: 96, type: 'crop', icon: <Leaf size={15} color="var(--color-green-500)" /> },
-    { name: 'Panel #3 (West)', date: '2026-03-06', result: 'Light Dust', confidence: 92, type: 'panel', icon: <Sun size={15} color="var(--color-solar-500)" /> },
-    { name: 'Rice Paddy', date: '2026-03-05', result: 'Sheath Blight – Mild', confidence: 87, type: 'crop', icon: <Leaf size={15} color="var(--color-solar-500)" /> },
-    { name: 'Panel #1 (East)', date: '2026-03-04', result: 'Normal', confidence: 98, type: 'panel', icon: <Sun size={15} color="var(--color-green-500)" /> },
-    { name: 'Turmeric Field', date: '2026-03-03', result: 'Leaf Spot – Mild', confidence: 84, type: 'crop', icon: <Leaf size={15} color="var(--color-solar-600)" /> },
-];
-
-function generateBBoxes(affArea: number) {
-    if (affArea === 0) return [];
-    const n = Math.min(Math.ceil(affArea / 8) + 1, 5);
-    return Array.from({ length: n }, () => ({
-        x1: 15 + Math.random() * 45, y1: 10 + Math.random() * 40,
-        w: 12 + Math.random() * 20, h: 10 + Math.random() * 18,
-        conf: Math.round((0.78 + Math.random() * 0.18) * 100),
-    }));
-}
-
-function runCropScan(cropHint: string) {
-    const cropName = Object.keys(CROP_DB).find(c => c.toLowerCase() === cropHint.toLowerCase()) || 'Tomato';
-    const crop = CROP_DB[cropName];
-
-    // Zero-Detection Path: 25% chance to just return completely healthy without hallucinating a disease
-    const isHealthy = Math.random() < 0.25;
-
-    if (isHealthy) {
-        return {
-            crop: cropName, family: crop.family, disease: 'Healthy', pathogen: 'None detected', cls: 'none',
-            confidence: Math.round((0.88 + Math.random() * 0.10) * 100), severity: 'Normal', affectedArea: '0%',
-            symptoms: 'Foliage appears green and structurally intact.', treatment: ['Continue regular irrigation', 'Maintain current fertilization schedule', 'Monitor for pests weekly'], organic: 'Standard compost application', spread: 'N/A',
-            yieldLoss: 0, rupeeRisk: 0,
-            bboxes: [], // Zero detection -> Zero boxes
-            pipeline: [
-                { stage: 1, name: 'Subject Classifier (ViT)', result: `${cropName} (${crop.family})`, conf: Math.round((0.90 + Math.random() * 0.08) * 100), ms: Math.floor(Math.random() * 40 + 25) },
-                { stage: 2, name: 'Disease Detector (YOLOv8)', result: 'No defects found', conf: 92, ms: Math.floor(Math.random() * 100 + 80) },
-                { stage: 3, name: 'Context Injector (LLM)', result: 'Optimal health confirmed', conf: null, ms: Math.floor(Math.random() * 40 + 15) },
-            ],
-        }
-    }
-
-    const d = crop.diseases[Math.floor(Math.random() * crop.diseases.length)];
-    const si = Math.floor(Math.random() * d.severity.length);
-    const aff = d.yieldLoss[si] || 0;
-    const conf = Math.round((0.82 + Math.random() * 0.14) * 100);
-    return {
-        crop: cropName, family: crop.family, disease: d.name, pathogen: d.pathogen, cls: d.cls,
-        confidence: conf, severity: d.severity[si], affectedArea: aff > 0 ? aff + '%' : '0%',
-        symptoms: d.symptoms, treatment: d.treatment, organic: d.organic, spread: d.spread,
-        yieldLoss: d.yieldLoss[si] || 0, rupeeRisk: d.rupeeRisk[si] || 0,
-        bboxes: generateBBoxes(aff),
-        pipeline: [
-            { stage: 1, name: 'Subject Classifier (ViT)', result: `${cropName} (${crop.family})`, conf: Math.round((0.90 + Math.random() * 0.08) * 100), ms: Math.floor(Math.random() * 40 + 25) },
-            { stage: 2, name: 'Disease Detector (YOLOv8)', result: d.name, conf, ms: Math.floor(Math.random() * 100 + 80) },
-            { stage: 3, name: 'Context Injector (LLM)', result: '₹ Impact + Weather', conf: null, ms: Math.floor(Math.random() * 40 + 15) },
-        ],
-    };
-}
-
-function runPanelScan() {
-    // Zero-Detection Path: 30% chance to return a perfectly clean panel
-    const isClean = Math.random() < 0.30;
-
-    if (isClean) {
-        return {
-            defect: 'Clean/Normal', severity: 'Normal', effLoss: 0, dailyLoss: 0,
-            symptoms: 'Surface is clear; no microcracks or shadowing detected.', action: ['Continue routine monitoring', 'Perform standard bi-weekly wash'], method: 'RGB Edge Detection + HSL', confidence: Math.round((0.88 + Math.random() * 0.08) * 100),
-            bboxes: [], // Zero detection -> Zero boxes
-            pipeline: [
-                { stage: 1, name: 'Subject Classifier (ViT)', result: 'Solar Panel', conf: 97, ms: 18 },
-                { stage: 2, name: 'Defect Detector (YOLOv8)', result: 'No defects found', conf: 94, ms: Math.floor(Math.random() * 80 + 50) },
-                { stage: 3, name: 'Impact Calculator', result: 'Operating at peak efficiency', conf: null, ms: 12 },
-            ],
-        };
-    }
-
-    const d = PANEL_DB[Math.floor(Math.random() * PANEL_DB.length)];
-    const li = Math.floor(Math.random() * d.effLoss.length);
-    const conf = Math.round((0.82 + Math.random() * 0.14) * 100);
-    return {
-        defect: d.defect, severity: d.severity, effLoss: d.effLoss[li], dailyLoss: d.dailyLoss[li],
-        symptoms: d.symptoms, action: d.action, method: d.method, confidence: conf,
-        bboxes: d.defect === 'PID' ? [] : generateBBoxes(d.effLoss[li]),
-        pipeline: [
-            { stage: 1, name: 'Subject Classifier (ViT)', result: 'Solar Panel', conf: 97, ms: 18 },
-            { stage: 2, name: 'Defect Detector (YOLOv8)', result: d.defect, conf, ms: Math.floor(Math.random() * 80 + 50) },
-            { stage: 3, name: 'Impact Calculator', result: `₹${d.dailyLoss[li]}/day loss`, conf: null, ms: 12 },
-        ],
-    };
-}
 
 // ═══ Image validation: HSL hue-based pixel classification ═══
 // Converts each pixel to HSL and classifies by hue range:
@@ -254,7 +77,7 @@ function validateImageLocally(dataUrl: string): Promise<{ valid: boolean; type: 
 
             // 1. Reject bright empty backgrounds (walls, ceilings, sky)
             if (wallPct > 60 && panelPct < 5 && greenPct < 5 && skinPct < 10) {
-                resolve({ valid: false, type: 'unknown', reason: `Irrelevant background detected. Please point the camera directly at a crop or solar panel.` });
+                resolve({ valid: false, type: 'unknown', reason: 'scan.v.background' });
                 return;
             }
 
@@ -265,53 +88,76 @@ function validateImageLocally(dataUrl: string): Promise<{ valid: boolean; type: 
 
             // 2a. Strong skin detection (high skin, low green)
             if (skinPct > 18 && greenPct < 8) {
-                resolve({ valid: false, type: 'unknown', reason: `This appears to be a non-plant subject. Please upload a clear photo of a crop leaf or solar panel.` });
+                resolve({ valid: false, type: 'unknown', reason: 'scan.v.person' });
                 return;
             }
 
             // 2b. Skin-to-green RATIO check — if skin dominates green by 2x or more, 
             //     it's almost certainly a face/human, not a plant
             if (skinPct > 12 && skinPct > greenPct * 2) {
-                resolve({ valid: false, type: 'unknown', reason: `Human/non-plant subject detected. The camera should point directly at a crop leaf, not a person.` });
+                resolve({ valid: false, type: 'unknown', reason: 'scan.v.person' });
                 return;
             }
 
             // 2c. Moderate skin with almost zero green (face with dark background)
             if (skinPct > 10 && greenPct < 3 && panelPct < 5) {
-                resolve({ valid: false, type: 'unknown', reason: `This doesn't appear to be a plant or solar panel. Please upload a clear crop leaf photo.` });
+                resolve({ valid: false, type: 'unknown', reason: 'scan.v.notPlant' });
                 return;
             }
 
             // 3. CROP ACCEPTANCE — green vegetation must be meaningful
             //    DO NOT count skin pixels as "agricultural" — that was the old bug
             if (greenPct >= 8) {
-                resolve({ valid: true, type: 'crop', reason: `Crop vegetation detected (${Math.round(greenPct)}% green pixels)` });
+                resolve({ valid: true, type: 'crop', reason: 'ok' });
                 return;
             }
 
             // 3b. For diseased/brown leaves: some green + some brown/warm tones
             //     Only accept if green is at least HALF of skin (indicates actual plant material)
             if (greenPct >= 3 && skinPct > 5 && greenPct >= skinPct * 0.4) {
-                resolve({ valid: true, type: 'crop', reason: `Possible diseased crop material detected` });
+                resolve({ valid: true, type: 'crop', reason: 'ok' });
                 return;
             }
 
             // 4. Accept if enough dark/blue panel pixels
             if (panelPct >= 10) {
-                resolve({ valid: true, type: 'panel', reason: `Solar panel surface detected (${Math.round(panelPct)}% dark/blue pixels)` });
+                resolve({ valid: true, type: 'panel', reason: 'ok' });
                 return;
             }
 
             // 5. Not enough evidence of plant or panel
-            resolve({ valid: false, type: 'unknown', reason: `Image not recognized as a crop leaf or solar panel. Please upload a clear, close-up photo.` });
+            resolve({ valid: false, type: 'unknown', reason: 'scan.v.unknown' });
         };
-        img.onerror = () => resolve({ valid: false, type: 'unknown', reason: 'Could not load image.' });
+        img.onerror = () => resolve({ valid: false, type: 'unknown', reason: 'scan.v.load' });
         img.src = dataUrl;
     });
 }
 
-export default function ScanPage() {
-    const [mode, setMode] = useState<'crop' | 'panel'>('crop');
+interface HistoryScan { _id: string; cropName: string; detectedDisease: string; confidenceScore: number; severity: string; scannedAt: string; status: string }
+interface Outbreak { disease: string; crop: string; farmsAffected: number; scans: number; alert: 'outbreak' | 'watch' | 'isolated'; lastSeen: string; districts: string[] }
+
+function ScanPage() {
+    const { t, num, date, lang } = useI18n();
+    const { farm } = useFarm();
+    const params = useSearchParams();
+    const [mode, setMode] = useState<'crop' | 'panel'>(params.get('mode') === 'panel' ? 'panel' : 'crop');
+    const [history, setHistory] = useState<HistoryScan[]>([]);
+    const [outbreaks, setOutbreaks] = useState<Outbreak[] | null>(null);
+    const [humidity, setHumidity] = useState<number | null>(null);
+    const [growing, setGrowing] = useState<{ cropName: string; sowingDate: string }[]>([]);
+
+    const loadHistory = useCallback(() => {
+        scanAPI.history().then((r) => setHistory(r.data.data.scans || [])).catch(() => { });
+    }, []);
+    useEffect(() => {
+        loadHistory();
+        districtAPI.get().then((r) => setOutbreaks(r.data.data.outbreaks || [])).catch(() => setOutbreaks([]));
+        cropAPI.getCrops().then((r) => setGrowing((r.data.data || []).filter((c: { status: string }) => c.status !== 'harvested'))).catch(() => { });
+    }, [loadHistory]);
+    useEffect(() => {
+        if (!farm) return;
+        weatherAPI.getCurrent(farm.location.latitude, farm.location.longitude).then((r) => setHumidity(r.data.data.humidity)).catch(() => { });
+    }, [farm]);
     const [image, setImage] = useState<string | null>(null);
     const [result, setResult] = useState<any>(null);
     const [scanning, setScanning] = useState(false);
@@ -371,7 +217,7 @@ export default function ScanPage() {
             streamRef.current = stream;
             setCameraActive(true);
         } catch (err) {
-            alert('Camera access denied or unavailable. Please use file upload instead.');
+            setScanError(t('scan.err.camera'));
         }
     }, []);
 
@@ -407,13 +253,13 @@ export default function ScanPage() {
     };
 
     const handleScan = async () => {
-        if (!image) { setScanError('Please upload or capture an image first.'); return; }
+        if (!image) { setScanError(t('scan.err.noImage')); return; }
         setScanning(true); setResult(null); setScanError(null);
 
         // Validate image content (reject clear non-plant images like human faces)
         const validation = await validateImageLocally(image);
         if (!validation.valid) {
-            setScanError(validation.reason);
+            setScanError(t(validation.reason));
             setScanning(false);
             return;
         }
@@ -422,36 +268,26 @@ export default function ScanPage() {
         // were being classified as 'unknown' and rejected. Roboflow is the final arbiter.
         // Only reject if the local validator is VERY confident it's the wrong type (panel in crop mode etc.)
         if (validation.type === 'panel' && mode === 'crop') {
-            setScanError('This looks like a solar panel, not a crop leaf. Please switch to Panel mode or upload a crop leaf photo.');
+            setScanError(t('scan.err.panelInCrop'));
             setScanning(false);
             return;
         }
         if (validation.type === 'crop' && mode === 'panel') {
-            setScanError('This looks like a crop leaf, not a solar panel. Please switch to Crop Disease mode or upload a panel photo.');
+            setScanError(t('scan.err.cropInPanel'));
             setScanning(false);
             return;
         }
 
         try {
-            const endpoint = mode === 'crop' ? '/api/scan/crop' : '/api/scan/panel';
-            const payload = mode === 'crop' ? { image } : { image, panelId: 'Panel #1' };
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-            const response = await fetch(`${apiUrl}${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                setResult(data.data);
+            const res = mode === 'crop' ? await scanAPI.crop(image) : await scanAPI.panel(image);
+            if (res.data.success) {
+                setResult(res.data.data);
+                if (mode === 'crop') loadHistory();
             } else {
-                setScanError(data.message || 'Error processing image.');
+                setScanError(res.data.message || t('scan.err.process'));
             }
         } catch (error) {
-            console.error("Vision Engine Error:", error);
-            setScanError('Failed to connect to the Vision API. Please ensure the backend is running and reachable.');
+            setScanError(apiError(error, t('scan.err.connect')));
         } finally {
             setScanning(false);
         }
@@ -461,24 +297,24 @@ export default function ScanPage() {
 
     return (
         <div>
-            <Navbar title="Scan Hub" subtitle="Vision AI Engine — YOLOv8 + PlantDoc Cascade Pipeline for worldwide crop & panel diagnostics" />
+            <Navbar title={t('nav.scan')} subtitle={t('scan.subtitle')} />
             <div className="page-container">
                 {/* Mode Toggle + Crop Select */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.375rem', padding: '0.25rem', borderRadius: 'var(--radius-full)', background: 'var(--color-gray-100)', width: 'max-content' }}>
-                        {[{ key: 'crop', label: 'Crop Disease', icon: <Leaf size={14} /> }, { key: 'panel', label: 'Panel Defect', icon: <Sun size={14} /> }].map(tab => (
+                        {[{ key: 'crop', label: t('scan.modeCrop'), icon: <Leaf size={14} /> }, { key: 'panel', label: t('scan.modePanel'), icon: <Sun size={14} /> }].map(tab => (
                             <button key={tab.key} onClick={() => { setMode(tab.key as any); setResult(null); setImage(null); }} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: 'none', background: mode === tab.key ? 'white' : 'transparent', color: mode === tab.key ? 'var(--color-green-700)' : 'var(--color-gray-500)', fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', fontFamily: 'var(--font-body)', boxShadow: mode === tab.key ? 'var(--shadow-sm)' : 'none' }}>{tab.icon} {tab.label}</button>
                         ))}
                     </div>
                     {/* Crop dropdown removed — AI auto-detects crop from the image */}
                 </div>
 
-                <div className="grid-2" style={{ marginBottom: '1.25rem' }}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ marginBottom: '1.25rem' }}>
                     {/* ═══ CAMERA VIEWFINDER ═══ */}
                     <div className="card">
                         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Eye size={20} strokeWidth={1.75} color="var(--color-green-600)" />
-                            {cameraActive ? 'Live Viewfinder' : mode === 'crop' ? 'Scan Crop' : 'Scan Panel'}
+                            {cameraActive ? t('scan.viewfinder') : mode === 'crop' ? t('scan.scanCrop') : t('scan.scanPanel')}
                         </h3>
 
                         <div style={{ position: 'relative', border: '2px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', background: 'var(--color-gray-900)', minHeight: '260px', marginBottom: '0.625rem' }}>
@@ -496,7 +332,7 @@ export default function ScanPage() {
                                         </button>
                                     )}
                                     {!videoReady && (
-                                        <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-mono)' }}>Initializing camera...</div>
+                                        <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-mono)' }}>{t('scan.initCamera')}</div>
                                     )}
                                     <button onClick={stopCamera} style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <X size={14} color="white" />
@@ -521,11 +357,11 @@ export default function ScanPage() {
                             ) : (
                                 <div onClick={() => fileRef.current?.click()} style={{ padding: '2.5rem 1rem', textAlign: 'center', cursor: 'pointer', background: mode === 'crop' ? 'var(--color-green-50)' : 'var(--color-solar-50)', height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                     <Upload size={28} color="var(--color-gray-400)" style={{ marginBottom: '0.5rem' }} />
-                                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-gray-600)' }}>Tap to upload or capture image</div>
+                                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-gray-600)' }}>{t('scan.tapUpload')}</div>
                                     <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', marginTop: '0.25rem' }}>
-                                        {mode === 'crop' ? 'Upload a clear image of a crop leaf for disease detection' : 'Upload a clear image of a solar panel surface'}
+                                        {mode === 'crop' ? t('scan.hintCrop') : t('scan.hintPanel')}
                                     </div>
-                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-300)', marginTop: '0.5rem', fontStyle: 'italic' }}>AI validates the image before diagnosis — random photos will be rejected</div>
+                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-300)', marginTop: '0.5rem', fontStyle: 'italic' }}>{t('scan.validates')}</div>
                                 </div>
                             )}
                         </div>
@@ -537,7 +373,7 @@ export default function ScanPage() {
                             <div style={{ marginBottom: '0.5rem', padding: '0.625rem', borderRadius: 'var(--radius-lg)', background: '#FEE2E2', border: '1px solid #FECACA', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                                 <AlertTriangle size={16} color="#DC2626" style={{ flexShrink: 0, marginTop: 2 }} />
                                 <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626', marginBottom: '0.125rem' }}>Image Not Recognized</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626', marginBottom: '0.125rem' }}>{t('scan.notRecognized')}</div>
                                     <div style={{ fontSize: '0.6875rem', color: '#991B1B' }}>{scanError}</div>
                                 </div>
                             </div>
@@ -545,17 +381,17 @@ export default function ScanPage() {
 
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button onClick={startCamera} style={{ flex: 1, padding: '0.625rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-gray-200)', background: 'white', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', color: 'var(--color-gray-600)' }}>
-                                <Camera size={16} /> Camera
+                                <Camera size={16} /> {t('scan.camera')}
                             </button>
                             <button onClick={handleScan} className="btn-primary" disabled={scanning} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}>
-                                {scanning ? <><Activity size={14} /> Analyzing...</> : <><Crosshair size={14} /> {mode === 'crop' ? 'Detect Disease' : 'Detect Defect'}</>}
+                                {scanning ? <><Activity size={14} /> {t('scan.analyzing')}</> : <><Crosshair size={14} /> {mode === 'crop' ? t('scan.detectDisease') : t('scan.detectDefect')}</>}
                             </button>
                         </div>
 
                         {/* Pipeline Progress (shows during/after scan) */}
                         {result?.pipeline && (
                             <div style={{ marginTop: '0.75rem', padding: '0.625rem', background: 'var(--color-gray-50)', borderRadius: 'var(--radius-lg)' }}>
-                                <div style={{ fontSize: '0.5625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-gray-500)', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Cpu size={10} /> Cascade AI Pipeline</div>
+                                <div style={{ fontSize: '0.5625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-gray-500)', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Cpu size={10} /> {t('scan.pipeline')}</div>
                                 {result.pipeline.map((s: any) => (
                                     <div key={s.stage} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.625rem', padding: '0.2rem 0', color: 'var(--color-gray-600)' }}>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: '50%', background: 'var(--color-green-100)', color: 'var(--color-green-700)', fontSize: '0.5rem', fontWeight: 700 }}>{s.stage}</span>
@@ -573,15 +409,15 @@ export default function ScanPage() {
                     <div className="card" style={{ background: result ? 'white' : 'var(--color-gray-50)' }}>
                         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Microscope size={20} strokeWidth={1.75} color="var(--color-green-600)" />
-                            AI Diagnosis
+                            {t('scan.diagnosis')}
                         </h3>
 
                         {!result ? (
                             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-gray-400)' }}>
                                 <ScanLine size={40} strokeWidth={1} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
-                                <p style={{ fontSize: '0.875rem' }}>Upload or capture to get AI diagnosis</p>
-                                <p style={{ fontSize: '0.6875rem', marginTop: '0.25rem' }}>Supports 12+ crops worldwide · {PANEL_DB.length} panel defect types</p>
-                                <p style={{ fontSize: '0.5625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-300)', marginTop: '0.5rem' }}>PlantDoc Dataset (IIT) · YOLOv8-Nano · Edge AI</p>
+                                <p style={{ fontSize: '0.875rem' }}>{t('scan.emptyTitle')}</p>
+                                <p style={{ fontSize: '0.6875rem', marginTop: '0.25rem' }}>{t('scan.emptySub')}</p>
+                                <p style={{ fontSize: '0.5625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-300)', marginTop: '0.5rem' }}>PlantDoc · Roboflow</p>
                             </div>
                         ) : mode === 'crop' && result.disease ? (
                             <div>
@@ -591,12 +427,12 @@ export default function ScanPage() {
                                         <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: sevColor(result.severity) }}>{result.confidence}%</div>
                                     </div>
                                     <div>
-                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>{result.disease === 'Healthy' ? '✅ Healthy' : result.disease}</div>
+                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>{result.disease === 'Healthy' ? `✅ ${t('scan.healthy')}` : result.disease}</div>
                                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)', fontStyle: 'italic' }}>{result.pathogen}</div>
                                         <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
                                             <span className={`badge ${result.severity === 'Severe' ? 'badge-red' : result.severity === 'Moderate' ? 'badge-solar' : 'badge-green'}`} style={{ fontSize: '0.375rem' }}>{result.severity}</span>
                                             <span className="badge badge-default" style={{ fontSize: '0.375rem' }}>{result.cls}</span>
-                                            <span className="badge badge-default" style={{ fontSize: '0.375rem' }}>Area: {result.affectedArea}</span>
+                                            <span className="badge badge-default" style={{ fontSize: '0.375rem' }}>{t('scan.area')}: {result.affectedArea}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -604,29 +440,33 @@ export default function ScanPage() {
                                 {/* Economic Impact */}
                                 {result.rupeeRisk > 0 && (
                                     <div style={{ padding: '0.625rem', borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1px solid #F59E0B', marginBottom: '0.625rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.5625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#92400E', marginBottom: '0.25rem' }}><CircleDollarSign size={12} /> Economic Threat</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.5625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#92400E', marginBottom: '0.25rem' }}><CircleDollarSign size={12} /> {t('scan.econ')}</div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div>
                                                 <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, color: '#92400E' }}>₹{result.rupeeRisk.toLocaleString()}</span>
-                                                <span style={{ fontSize: '0.6875rem', color: '#92400E', marginLeft: '0.25rem' }}>/quintal</span>
+                                                <span style={{ fontSize: '0.6875rem', color: '#92400E', marginLeft: '0.25rem' }}>{t('common.perQuintal')}</span>
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.6875rem', color: '#92400E' }}>Yield Risk: <strong>-{result.yieldLoss}%</strong></div>
-                                                <div style={{ fontSize: '0.5625rem', color: '#92400E' }}>Spread: {result.spread}</div>
+                                                <div style={{ fontSize: '0.6875rem', color: '#92400E' }}>{t('scan.yieldRisk')}: <strong>-{result.yieldLoss}%</strong></div>
+                                                <div style={{ fontSize: '0.5625rem', color: '#92400E' }}>{t('scan.spread')}: {result.spread}</div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
+                                <button className="btn-secondary" onClick={() => speak([result.disease === 'Healthy' ? t('scan.healthy') : result.disease, result.symptoms, ...(result.treatment || []).slice(0, 2), result.organic ? `${t('scan.organic')}: ${result.organic}` : ''].filter(Boolean).join('. '), lang)}
+                                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem', marginBottom: '0.625rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <Radio size={12} /> {t('dash.listen')}
+                                </button>
                                 {/* Treatment */}
-                                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Treatment Protocol</div>
+                                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('scan.treatment')}</div>
                                 {result.treatment.map((s: string, i: number) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.375rem', padding: '0.3rem 0', borderBottom: i < result.treatment.length - 1 ? '1px solid var(--color-gray-50)' : 'none', fontSize: '0.75rem', color: 'var(--color-gray-600)' }}>
                                         <CheckCircle2 size={13} color="var(--color-green-500)" style={{ marginTop: 2, flexShrink: 0 }} /> {s}
                                     </div>
                                 ))}
                                 <div style={{ marginTop: '0.375rem', padding: '0.375rem', borderRadius: 'var(--radius-md)', background: 'var(--color-green-50)', fontSize: '0.6875rem', color: 'var(--color-green-700)' }}>
-                                    🌿 <strong>Organic:</strong> {result.organic}
+                                    🌿 <strong>{t('scan.organic')}:</strong> {result.organic}
                                 </div>
                             </div>
                         ) : result?.defect ? (
@@ -645,106 +485,111 @@ export default function ScanPage() {
                                 <div style={{ padding: '0.625rem', borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1px solid #F59E0B', marginBottom: '0.625rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>Daily Loss</div>
+                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>{t('scan.dailyLoss')}</div>
                                             <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, color: '#92400E' }}>₹{result.dailyLoss}</span>
                                         </div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>Monthly</div>
+                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>{t('scan.monthly')}</div>
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: '#92400E' }}>₹{(result.dailyLoss * 30).toLocaleString()}</span>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>Eff. Drop</div>
+                                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>{t('scan.effDrop')}</div>
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: '#EF4444' }}>-{result.effLoss}%</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Action Required</div>
+                                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>{t('scan.action')}</div>
                                 {result.action.map((s: string, i: number) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.375rem', padding: '0.3rem 0', fontSize: '0.75rem', color: s.startsWith('⚠') ? 'var(--color-red-600)' : 'var(--color-gray-600)', fontWeight: s.startsWith('⚠') ? 700 : 400 }}>
                                         <Shield size={13} color="var(--color-green-500)" style={{ marginTop: 2, flexShrink: 0 }} /> {s}
                                     </div>
                                 ))}
-                                <div style={{ marginTop: '0.375rem', fontSize: '0.5625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-400)' }}>Detection: {result.method}</div>
+                                <div style={{ marginTop: '0.375rem', fontSize: '0.5625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-400)' }}>{t('scan.detection')}: {result.method}</div>
                             </div>
                         ) : null}
                     </div>
                 </div>
 
-                {/* ═══ BOTTOM ROW: Context + Outbreak + Recents ═══ */}
-                <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
-                    {/* Farm Context */}
+                {/* ═══ BOTTOM ROW: Context + Outbreak + History (live) ═══ */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ marginBottom: '1.5rem' }}>
                     <div className="card" style={{ padding: '0.875rem' }}>
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Target size={16} color="var(--color-green-600)" /> Farm Context</h4>
+                        <h4 style={h4}><Target size={16} color="var(--color-green-600)" /> {t('scan.context')}</h4>
                         <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'var(--color-green-50)', marginBottom: '0.5rem' }}>
-                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: 'var(--color-green-700)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Currently Growing</div>
-                            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-gray-700)', marginTop: '0.125rem' }}>Tomato (Day 42) · Rice (Day 28)</div>
+                            <div style={kicker}>{t('scan.growing')}</div>
+                            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-gray-700)', marginTop: '0.125rem' }}>
+                                {growing.length ? growing.map((c) => `${t(cropKey(c.cropName))} (${t('scan.day', { n: Math.max(0, Math.floor((Date.now() - new Date(c.sowingDate).getTime()) / 86400000)) })})`).join(' · ') : t('scan.noCrops')}
+                            </div>
                         </div>
-                        <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: '#FEF3C7', marginBottom: '0.5rem' }}>
-                            <div style={{ fontSize: '0.5625rem', fontWeight: 700, color: '#92400E', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Wind size={10} /> Weather Risk</div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400E', marginTop: '0.125rem' }}>High Humidity (&gt;80%) — <strong>Fungal Risk HIGH</strong></div>
-                            <div style={{ fontSize: '0.5625rem', color: '#92400E', marginTop: '0.125rem' }}>At risk: Late Blight, Downy Mildew</div>
-                        </div>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Last Scan</span><span style={{ fontFamily: 'var(--font-mono)' }}>3h ago (Healthy ✅)</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Supported Crops</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-green-600)' }}>12 species</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}><span>Panel Defects</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{PANEL_DB.length} types</span></div>
-                        </div>
-                    </div>
-
-                    {/* Outbreak Radar */}
-                    <div className="card" style={{ padding: '0.875rem' }}>
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Radio size={16} color="var(--color-red-500)" /> Outbreak Radar</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                            {OUTBREAK_ALERTS.map((a, i) => (
-                                <div key={i} style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: a.severity === 'Severe' ? '#FEE2E2' : a.severity === 'Moderate' ? '#FEF3C7' : 'var(--color-gray-50)', borderLeft: `3px solid ${a.severity === 'Severe' ? '#EF4444' : a.severity === 'Moderate' ? '#F59E0B' : '#6B7280'}` }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>{a.disease}</span>
-                                        <span className={`badge ${a.severity === 'Severe' ? 'badge-red' : a.severity === 'Moderate' ? 'badge-solar' : 'badge-default'}`} style={{ fontSize: '0.375rem' }}>{a.severity}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-500)', marginTop: '0.125rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}><MapPin size={9} /> {a.dist_km}km {a.dir}</span>
-                                        <span>{a.crop}</span>
-                                        <span style={{ fontFamily: 'var(--font-mono)' }}>{a.date}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.5rem', color: a.windRisk.startsWith('HIGH') ? '#B91C1C' : 'var(--color-gray-400)', marginTop: '0.125rem' }}>🌬️ {a.windRisk}</div>
+                        {humidity != null && (
+                            <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: humidity >= 80 ? '#FEF3C7' : 'var(--color-gray-50)' }}>
+                                <div style={{ ...kicker, color: '#92400E', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Wind size={10} /> {t('scan.weatherRisk')}</div>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400E', marginTop: '0.125rem' }}>
+                                    {humidity >= 80 ? t('scan.fungalHigh', { h: humidity }) : t('scan.fungalLow', { h: humidity })}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Recent Scans */}
                     <div className="card" style={{ padding: '0.875rem' }}>
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Clock size={16} color="var(--color-gray-500)" /> Recent Scans</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            {RECENT_SCANS.map((s, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.5rem', borderRadius: 'var(--radius-md)', background: 'var(--color-gray-50)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                        {s.icon}
-                                        <div>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-gray-700)' }}>{s.name}</div>
-                                            <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-400)', fontFamily: 'var(--font-mono)' }}>{s.date}</div>
+                        <h4 style={h4}><Radio size={16} color="var(--color-red-500)" /> {t('district.radar')}</h4>
+                        {outbreaks === null ? <Activity size={14} /> : outbreaks.length === 0 ? (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-green-700)' }}>{t('district.noOutbreak')}</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                {outbreaks.slice(0, 4).map((a) => (
+                                    <div key={a.disease + a.crop} style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: a.alert === 'outbreak' ? '#FEE2E2' : a.alert === 'watch' ? '#FEF3C7' : 'var(--color-gray-50)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, gap: '0.5rem' }}>
+                                            <span>{a.disease}</span><span>{t('district.alert.' + a.alert)}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-500)', display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                                            <MapPin size={9} /> {t(cropKey(a.crop))} · {t('scan.outbreakShort', { f: a.farmsAffected, s: a.scans })} · {date(a.lastSeen)}
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <span className={`badge ${s.result.includes('Healthy') || s.result === 'Normal' ? 'badge-green' : 'badge-solar'}`} style={{ fontSize: '0.375rem' }}>{s.result}</span>
-                                        <div style={{ fontSize: '0.5rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-400)', marginTop: '0.125rem' }}>{s.confidence}%</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="card" style={{ padding: '0.875rem' }}>
+                        <h4 style={h4}><Clock size={16} color="var(--color-gray-500)" /> {t('scan.recent')}</h4>
+                        {history.length === 0 ? <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{t('scan.noHistory')}</div> : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                {history.slice(0, 6).map((h) => {
+                                    const healthy = /healthy/i.test(h.detectedDisease);
+                                    return (
+                                        <div key={h._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.5rem', borderRadius: 'var(--radius-md)', background: 'var(--color-gray-50)', gap: '0.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', minWidth: 0 }}>
+                                                <Leaf size={14} color={healthy ? 'var(--color-green-500)' : 'var(--color-solar-600)'} />
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-gray-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{healthy ? t('scan.healthy') : h.detectedDisease}</div>
+                                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-400)' }}>{t(cropKey(h.cropName))} · {date(h.scannedAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                <div style={{ fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-500)' }}>{num(h.confidenceScore)}%</div>
+                                                {!healthy && h.status === 'pending' && (
+                                                    <button onClick={async () => { await scanAPI.updateStatus(h._id, 'treated'); loadHistory(); }} style={{ fontSize: '0.5625rem', border: 'none', background: 'none', color: 'var(--color-green-700)', cursor: 'pointer', padding: 0 }}>{t('scan.markTreated')}</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* ═══ METHODOLOGY FOOTER ═══ */}
-                <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: 'var(--radius-lg)', background: 'var(--color-green-50)', border: '1px solid var(--color-green-200)' }}>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-green-700)', lineHeight: 1.8 }}>
-                        <strong>Training Datasets:</strong> PlantDoc (IIT, 2,598 real-world images, 13 species, 17 classes, YOLO XML annotations) · iNaturalist (millions of smartphone images) · Kaggle IR+RGB Solar Panel Faults · Roboflow UAV Solar Dust
-                    </div>
-                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-green-600)', fontFamily: 'var(--font-mono)', marginTop: '0.25rem' }}>
-                        Architecture: ViT-B/16 (iNaturalist) → YOLOv8-Nano (PlantDoc fine-tuned, transfer learning) → LLM Context Engine · Inference: &lt;200ms edge · ONNX Runtime
-                    </div>
+                <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: 'var(--radius-lg)', background: 'var(--color-green-50)', border: '1px solid var(--color-green-200)', fontSize: '0.6875rem', color: 'var(--color-green-700)', lineHeight: 1.7 }}>
+                    {t('scan.method')}
                 </div>
             </div>
         </div>
     );
+}
+
+const h4: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' };
+const kicker: React.CSSProperties = { fontSize: '0.5625rem', fontWeight: 700, color: 'var(--color-green-700)', textTransform: 'uppercase', letterSpacing: '0.06em' };
+
+export default function ScanPageRoute() {
+    return <Suspense fallback={null}><ScanPage /></Suspense>;
 }

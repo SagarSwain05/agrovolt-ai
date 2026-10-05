@@ -1,583 +1,267 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import StatCard from '@/components/StatCard';
 import { useAuth } from '@/lib/auth';
-import { useChronos } from '@/hooks/useChronos';
-import { useWeather } from '@/hooks/useWeather';
+import { useI18n } from '@/lib/i18n';
+import { dashboardAPI } from '@/lib/api';
+import { useApi, useTelemetry, type SensorReading } from '@/hooks/useLive';
+import { speak, stopSpeaking } from '@/lib/speech';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import {
-    getSunPosition, getSunTimes, calcSolarEfficiency, calcOptimalTilt,
-    calcEnergyToday, calcWaterSaved, getDayProgress, getSunIntensity, getDayOfYear,
-    getTiltRecommendation,
-} from '@/lib/solarEngine';
-import { generateBriefing, generateTasks, type FarmTask } from '@/lib/briefingEngine';
-import {
-    Zap, Droplets, Leaf, IndianRupee, ScanLine, BarChart3,
-    Sun, Moon, Wallet, CheckCircle2, Circle, ArrowRight, CloudSun, Cloud, CloudRain,
-    Thermometer, Wind, TrendingUp, Activity, Sprout, ShieldCheck,
-    BrainCircuit, Clock, MapPin, Sunrise, Sunset,
+    Zap, Droplets, Leaf, IndianRupee, Thermometer, Sun, CloudRain, Cloud, CloudSun, Moon, Gauge, Sprout,
+    AlertTriangle, TrendingUp, Wrench, ScanLine, Settings2, Volume2, Square, Radio, Cpu, ArrowRight, Loader2,
 } from 'lucide-react';
 
-// ─── Persistence helpers ────────────────────────────────────
-
-const TASKS_KEY = 'agrovolt_tasks_done';
-
-function loadDoneTaskIds(): Set<string> {
-    if (typeof window === 'undefined') return new Set();
-    try {
-        const stored = localStorage.getItem(TASKS_KEY);
-        if (!stored) return new Set();
-        const parsed = JSON.parse(stored);
-        // Reset if stored date is different from today
-        if (parsed.date !== new Date().toDateString()) return new Set();
-        return new Set(parsed.ids || []);
-    } catch { return new Set(); }
+interface Action { code: string; type: string; priority: number; text: string }
+interface Forecast { date: string; day: string; tempMax: number; tempMin: number; rain: number; rainChance: number | null; description: string; radiationKwhM2: number; icon: string }
+interface Dash {
+    farm: { name: string; district?: string; state?: string; cropUnderPanels?: string; shadeCoveragePct?: number };
+    weather: { temperature: number; feelsLike: number; humidity: number; windSpeed: number; description: string; isDay: boolean; location: string; sunrise: string; sunset: string; irradiance: number } | null;
+    forecast: Forecast[];
+    sensors: SensorReading | null;
+    solar: null | {
+        capacityKW: number; tilt: number; optimalTilt: number; todayKwh: number; powerW: number; panelTempC?: number; bioCoolingDeltaC?: number; tariffPerKwh: number;
+        last30: { energyKwh: number; revenue: number; waterSavedL: number; bioCoolingGainKwh: number };
+        daily: { day: string; kwh: number; revenue: number; partial?: boolean }[];
+    };
+    carbon: { credits: number; co2AvoidedKg: number; valueInr: number; waterSavedL: number };
+    market: { crop: string; currentPrice: number; signal: string; pctChange: number; bestMandi?: string; source: string };
+    scans: { crop: string; disease: string; date: string; severity: string }[];
+    actions: Action[];
+    income: { solar30: number; carbonValue: number; todaySolar: number; total30: number };
 }
 
-function saveDoneTaskIds(ids: Set<string>) {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(TASKS_KEY, JSON.stringify({
-        date: new Date().toDateString(),
-        ids: Array.from(ids),
-    }));
-}
+const ACTION_STYLE: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
+    water: { icon: <Droplets size={16} />, color: 'var(--color-blue-600)', bg: 'var(--color-blue-50)' },
+    alert: { icon: <AlertTriangle size={16} />, color: 'var(--color-red-600)', bg: 'var(--color-red-50)' },
+    solar: { icon: <Sun size={16} />, color: 'var(--color-solar-600)', bg: 'var(--color-solar-50)' },
+    market: { icon: <TrendingUp size={16} />, color: 'var(--color-green-700)', bg: 'var(--color-green-50)' },
+    crop: { icon: <Sprout size={16} />, color: 'var(--color-green-700)', bg: 'var(--color-green-50)' },
+    setup: { icon: <Wrench size={16} />, color: 'var(--color-gray-700)', bg: 'var(--color-gray-100)' },
+    info: { icon: <Leaf size={16} />, color: 'var(--color-green-700)', bg: 'var(--color-green-50)' },
+};
 
-// ─── Weather icon helper ────────────────────────────────────
-
-function getWeatherIcon(desc: string, isNight: boolean) {
+function wxIcon(desc: string, night = false, size = 18) {
     const d = desc.toLowerCase();
-    if (d.includes('rain')) return <CloudRain size={18} color="var(--color-blue-500)" />;
-    if (d.includes('cloud') || d.includes('overcast')) return <Cloud size={18} color="var(--color-gray-400)" />;
-    if (isNight) return <Moon size={18} color="var(--color-blue-300)" />;
-    return <Sun size={18} color="var(--color-solar-500)" />;
+    if (d.includes('rain') || d.includes('drizzle') || d.includes('thunder')) return <CloudRain size={size} color="var(--color-blue-500)" />;
+    if (night) return <Moon size={size} color="var(--color-blue-400)" />;
+    if (d.includes('overcast') || d.includes('fog')) return <Cloud size={size} color="var(--color-gray-400)" />;
+    if (d.includes('partly') || d.includes('mainly')) return <CloudSun size={size} color="var(--color-solar-500)" />;
+    return <Sun size={size} color="var(--color-solar-500)" />;
 }
-
-function getTaskIcon(category: string) {
-    switch (category) {
-        case 'irrigation': return <Droplets size={16} color="var(--color-blue-500)" />;
-        case 'protection': return <ShieldCheck size={16} color="var(--color-green-500)" />;
-        case 'monitoring': return <Activity size={16} color="var(--color-solar-500)" />;
-        case 'harvest': return <Sprout size={16} color="var(--color-green-600)" />;
-        case 'solar': return <Zap size={16} color="var(--color-solar-600)" />;
-        case 'market': return <BarChart3 size={16} color="var(--color-blue-600)" />;
-        default: return <Circle size={16} color="var(--color-gray-400)" />;
-    }
-}
-
-// ════════════════════════════════════════════════════════════
-// DASHBOARD PAGE
-// ════════════════════════════════════════════════════════════
 
 export default function DashboardPage() {
-    const chronos = useChronos();
-    const { weather, forecast, loading: weatherLoading, isNight } = useWeather(chronos.lat, chronos.lon, chronos.geoLoaded);
-
-    // ─── Solar computations (suncalc) ──────────────────────
-    const solar = useMemo(() => {
-        const sunTimes = getSunTimes(chronos.currentTime, chronos.lat, chronos.lon);
-        const sunPos = getSunPosition(chronos.currentTime, chronos.lat, chronos.lon);
-        const cloud = weather?.clouds ?? 30;
-        const humid = weather?.humidity ?? 50;
-        const temp = weather?.temperature ?? 28;
-
-        const efficiency = calcSolarEfficiency(sunPos.altitudeDeg, cloud, humid);
-        const dayOfYear = getDayOfYear(chronos.currentTime);
-        const optimalTilt = calcOptimalTilt(chronos.lat, dayOfYear);
-        const currentTilt = optimalTilt + 3; // Simulate slightly off
-        const energy = calcEnergyToday(
-            chronos.lat, chronos.lon,
-            sunTimes.sunrise, sunTimes.sunset, chronos.currentTime,
-            cloud, humid
-        );
-        const hoursSinceSunrise = Math.max(0, (chronos.currentTime.getTime() - sunTimes.sunrise.getTime()) / 3_600_000);
-        const waterSaved = calcWaterSaved(hoursSinceSunrise, temp);
-        const dayProgress = getDayProgress(sunTimes.sunrise, sunTimes.sunset, chronos.currentTime);
-        const sunIntensity = getSunIntensity(sunPos.altitudeDeg);
-
-        return {
-            sunTimes, sunPos, efficiency, optimalTilt, currentTilt, energy,
-            waterSaved, dayProgress, sunIntensity, hoursSinceSunrise,
-        };
-    }, [chronos.currentTime, chronos.lat, chronos.lon, weather]);
-
-    // ─── Tasks (interactive + persistent) ──────────────────
-    const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
-
-    useEffect(() => {
-        setDoneIds(loadDoneTaskIds());
-    }, []);
-
-    const tasks = useMemo(() => {
-        if (!weather) return [];
-        const generated = generateTasks(
-            chronos.hour, weather.temperature, weather.humidity,
-            weather.clouds, weather.description.toLowerCase().includes('rain')
-        );
-        return generated.map(t => ({ ...t, done: doneIds.has(t.id) }));
-    }, [chronos.hour, weather, doneIds]);
-
-    function toggleTask(taskId: string) {
-        setDoneIds(prev => {
-            const next = new Set(prev);
-            if (next.has(taskId)) next.delete(taskId);
-            else next.add(taskId);
-            saveDoneTaskIds(next);
-            return next;
-        });
-    }
-
-    // ─── Briefing ──────────────────────────────────────────
     const { user } = useAuth();
+    const { t, lang, num, date } = useI18n();
+    const { data, error, loading, updatedAt } = useApi<Dash>(() => dashboardAPI.get(lang), [lang], 120000);
+    const { reading: live, connected } = useTelemetry(data?.sensors);
+    const [speaking, setSpeaking] = useState(false);
 
-    const briefing = useMemo(() => {
-        if (!weather) return null;
-        return generateBriefing({
-            userName: user?.name || 'Farmer',
-            timeOfDay: chronos.timeOfDay,
-            hour: chronos.hour,
-            temperature: weather.temperature,
-            humidity: weather.humidity,
-            weatherDesc: weather.description,
-            cloudCover: weather.clouds,
-            windSpeed: weather.windSpeed,
-            solarEfficiency: solar.efficiency,
-            energyToday: solar.energy,
-            waterSaved: solar.waterSaved,
-            tasksTotal: tasks.length,
-            tasksDone: tasks.filter(t => t.done).length,
-            sunrise: weather.sunrise,
-            sunset: weather.sunset,
-            location: weather.location,
-        });
-    }, [weather, chronos.timeOfDay, chronos.hour, solar, tasks, user]);
+    const sensors = live || data?.sensors || null;
+    const solar = data?.solar;
+    const chart = useMemo(() => (solar?.daily || []).map((d) => ({ ...d, label: date(d.day) })), [solar, date]);
 
-    // ─── Typewriter effect for briefing ────────────────────
-    const [typedText, setTypedText] = useState('');
-    const [doneTyping, setDoneTyping] = useState(false);
+    const readActions = async () => {
+        if (speaking) { stopSpeaking(); setSpeaking(false); return; }
+        if (!data) return;
+        setSpeaking(true);
+        const w = data.weather;
+        const intro = w ? t('dash.briefIntro', { name: user?.name?.split(' ')[0] || '', temp: w.temperature }) : '';
+        await speak([intro, ...data.actions.slice(0, 3).map((a) => a.text)].join(' '), lang);
+        setSpeaking(false);
+    };
 
-    useEffect(() => {
-        if (!briefing) return;
-        setTypedText('');
-        setDoneTyping(false);
-        let i = 0;
-        const interval = setInterval(() => {
-            if (i <= briefing.text.length) {
-                setTypedText(briefing.text.slice(0, i));
-                i++;
-            } else {
-                setDoneTyping(true);
-                clearInterval(interval);
-            }
-        }, 12);
-        return () => clearInterval(interval);
-    }, [briefing?.text]);
-
-    // ─── Carbon credits (accumulated base + today's generation) ──
-    const userFarmSize = user?.farmSize || 2; // Default to 2 acres
-    const baseCarbonCredits = 0.82 * (userFarmSize / 2); // Scale roughly by farm size
-    const baseMonthlyEnergy = 280 * (userFarmSize / 2); // estimated monthly baseline kWh
-    const todayCredits = Math.round(solar.energy * 0.034 * 100) / 100;
-    const carbonCredits = Math.round((baseCarbonCredits + todayCredits) * 100) / 100;
-
-    const projectedRevenue = Math.round(
-        (baseMonthlyEnergy + solar.energy) * 8 + carbonCredits * 1800
-    );
-
-    // ─── Theme colors based on day/night ──────────────────
-    const theme = isNight
-        ? { briefingBg: 'linear-gradient(135deg, #1a2332, #0f172a)', badge: '#818cf8', badgeBg: 'rgba(129,140,248,0.15)', solarGauge: 'linear-gradient(135deg, #1e293b, #334155)' }
-        : { briefingBg: 'linear-gradient(135deg, var(--color-green-800), var(--color-green-900))', badge: '#6ee7b7', badgeBg: 'rgba(52,211,153,0.2)', solarGauge: 'linear-gradient(135deg, var(--color-green-50), var(--color-solar-50))' };
-
-    // ─── Loading state ────────────────────────────────────
-    if (weatherLoading && !weather) {
-        return (
-            <div>
-                <Navbar title="Dashboard" subtitle="Your agrivoltaic farm intelligence — One View" />
-                <div className="page-container">
-                    <div className="grid-4">
-                        {[1, 2, 3, 4].map(i => (<div key={i} className="skeleton" style={{ height: '120px', borderRadius: 'var(--radius-xl)' }} />))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const greetingKey = (() => {
+        const h = new Date().getHours();
+        return h < 12 ? 'dash.goodMorning' : h < 17 ? 'dash.goodAfternoon' : 'dash.goodEvening';
+    })();
 
     return (
         <div>
             <Navbar
-                title="Dashboard"
-                subtitle={`${chronos.formattedDate} — ${chronos.formattedTime}`}
-                temperature={weather?.temperature}
-                isNight={isNight}
-                weatherIcon={weather ? getWeatherIcon(weather.description, isNight) : undefined}
+                title={`${t(greetingKey)}, ${user?.name?.split(' ')[0] || ''}`}
+                subtitle={data ? `${data.farm.name}${data.farm.district ? ' · ' + data.farm.district : ''}` : t('common.loading')}
+                temperature={data?.weather?.temperature}
+                isNight={data?.weather ? !data.weather.isDay : undefined}
             />
-
-            <div className="page-container">
-                {/* ═══ AI BRIEFING ═══ */}
-                {briefing && (
-                    <div style={{
-                        padding: '1.25rem',
-                        borderRadius: 'var(--radius-xl)',
-                        background: theme.briefingBg,
-                        color: 'white',
-                        marginBottom: '1.5rem',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        animation: 'fadeIn 0.5s ease forwards',
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                            <BrainCircuit size={18} strokeWidth={1.75} />
-                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>
-                                {briefing.title}
-                            </span>
-                            <span style={{ fontSize: '0.625rem', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: theme.badgeBg, color: theme.badge, fontWeight: 600 }}>
-                                {briefing.badge}
-                            </span>
-                            <span style={{ marginLeft: 'auto', fontSize: '0.6875rem', opacity: 0.5, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <Clock size={12} /> {chronos.formattedTime}
-                            </span>
-                        </div>
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', lineHeight: 1.7, opacity: 0.9 }}>
-                            {typedText}<span style={{ animation: 'pulse-ring 1s ease infinite', opacity: doneTyping ? 0 : 1 }}>|</span>
-                        </p>
+            <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {error && !data && <div className="card" style={{ color: 'var(--color-red-600)' }}>{t('common.loadError')}: {error}</div>}
+                {loading && !data && (
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-gray-500)' }}>
+                        <Loader2 size={16} className="animate-spin" /> {t('dash.loadingLive')}
                     </div>
                 )}
 
-                {/* ═══ STAT CARDS ═══ */}
-                <div className="grid-4" style={{ marginBottom: '1.5rem' }}>
-                    <StatCard
-                        icon={<Zap size={20} strokeWidth={1.75} />}
-                        label="Solar Energy"
-                        value={`${solar.energy} kWh`}
-                        trend={solar.energy > 0 ? 'up' : undefined}
-                        trendValue={solar.energy > 0 ? `${solar.efficiency}% eff.` : undefined}
-                        variant="solar"
-                    />
-                    <StatCard
-                        icon={<Droplets size={20} strokeWidth={1.75} />}
-                        label="Water Saved"
-                        value={`${solar.waterSaved.toLocaleString()} L`}
-                        subValue="Panel shade savings"
-                        variant="blue"
-                    />
-                    <StatCard
-                        icon={<Leaf size={20} strokeWidth={1.75} />}
-                        label="Carbon Credits"
-                        value={carbonCredits.toFixed(2)}
-                        subValue={`≈ ₹${Math.round(carbonCredits * 1800).toLocaleString()}`}
-                        variant="green"
-                    />
-                    <StatCard
-                        icon={<IndianRupee size={20} strokeWidth={1.75} />}
-                        label="Projected Revenue"
-                        value={`₹${projectedRevenue.toLocaleString()}`}
-                        subValue="This month"
-                        variant="green"
-                    />
-                </div>
-
-                {/* ═══ QUICK ACTIONS ═══ */}
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                    {[
-                        { href: '/scan', icon: <ScanLine size={16} />, label: 'Scan Disease', color: 'var(--color-green-600)' },
-                        { href: '/market', icon: <BarChart3 size={16} />, label: 'Market Prices', color: 'var(--color-blue-600)' },
-                        { href: '/solar', icon: <Zap size={16} />, label: 'Solar Status', color: 'var(--color-solar-600)' },
-                        { href: '/carbon', icon: <Wallet size={16} />, label: 'Carbon Wallet', color: 'var(--color-green-700)' },
-                    ].map(action => (
-                        <a key={action.label} href={action.href} style={{
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                            padding: '0.625rem 1rem', borderRadius: 'var(--radius-full)',
-                            border: '1px solid var(--color-gray-200)', background: 'white',
-                            fontSize: '0.8125rem', fontWeight: 500, color: action.color,
-                            textDecoration: 'none', fontFamily: 'var(--font-body)', transition: 'all 0.2s ease',
-                        }}>
-                            {action.icon} {action.label}
-                        </a>
-                    ))}
-                </div>
-
-                {/* ═══ SPLIT VIEW: Tasks + Solar ═══ */}
-                <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
-                    {/* INTERACTIVE TASK LIST */}
-                    <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <div>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Sprout size={20} strokeWidth={1.75} color="var(--color-green-600)" />
-                                    Today&apos;s Crop Actions
-                                </h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', marginTop: '0.125rem' }}>
-                                    {tasks.filter(t => t.done).length}/{tasks.length} completed — Click to toggle
-                                </p>
-                            </div>
-                            <a href="/crops" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-green-600)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', fontFamily: 'var(--font-body)' }}>
-                                View All <ArrowRight size={12} />
-                            </a>
+                {data && (
+                    <>
+                        {/* ── Income + live stats ── */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <StatCard variant="green" icon={<IndianRupee size={18} />} label={t('dash.solarIncomeToday')}
+                                value={`₹${num(data.income.todaySolar)}`} subValue={solar ? t('dash.kwhToday', { kwh: num(sensors?.energyTodayKwh ?? solar.todayKwh, 1) }) : t('dash.noSolar')} />
+                            <StatCard variant="solar" icon={<Zap size={18} />} label={t('dash.powerNow')}
+                                value={solar ? `${num(sensors?.powerW ?? solar.powerW)} W` : '—'} subValue={solar ? t('dash.ofCapacity', { kw: solar.capacityKW }) : ''} />
+                            <StatCard variant="blue" icon={<Droplets size={18} />} label={t('dash.waterSaved30')}
+                                value={`${num(solar?.last30.waterSavedL ?? 0)} L`} subValue={t('dash.byPanelShade')} />
+                            <StatCard variant="green" icon={<Leaf size={18} />} label={t('dash.carbonCredits')}
+                                value={num(data.carbon.credits, 3)} subValue={`≈ ₹${num(data.carbon.valueInr)}`} />
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {tasks.map((item) => (
-                                <div
-                                    key={item.id}
-                                    onClick={() => toggleTask(item.id)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '0.75rem',
-                                        padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-lg)',
-                                        background: item.done ? 'var(--color-gray-50)' : 'white',
-                                        border: item.done ? '1px solid var(--color-gray-100)' : item.priority === 'high' ? '1px solid var(--color-green-200)' : '1px solid var(--color-gray-100)',
-                                        cursor: 'pointer', transition: 'all 0.2s ease',
-                                        opacity: item.done ? 0.6 : 1,
-                                    }}
-                                >
-                                    {item.done
-                                        ? <CheckCircle2 size={18} color="var(--color-green-500)" />
-                                        : <Circle size={18} color="var(--color-gray-300)" strokeWidth={1.5} />
-                                    }
-                                    {getTaskIcon(item.category)}
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{
-                                            fontSize: '0.8125rem',
-                                            color: item.done ? 'var(--color-gray-400)' : 'var(--color-gray-700)',
-                                            textDecoration: item.done ? 'line-through' : 'none',
-                                            fontWeight: 500,
-                                        }}>
-                                            {item.task}
+
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                            {/* ── AI action queue ── */}
+                            <div className="card lg:col-span-3" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                    <h2 style={h2}>{t('dash.actionsTitle')}</h2>
+                                    <button onClick={readActions} className="btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        {speaking ? <><Square size={13} /> {t('common.stop')}</> : <><Volume2 size={14} /> {t('dash.listen')}</>}
+                                    </button>
+                                </div>
+                                {data.actions.map((a, i) => {
+                                    const st = ACTION_STYLE[a.type] || ACTION_STYLE.info;
+                                    return (
+                                        <div key={a.code + i} style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem', borderRadius: 'var(--radius-lg)', background: st.bg, alignItems: 'flex-start' }}>
+                                            <div style={{ color: st.color, marginTop: '2px', flexShrink: 0 }}>{st.icon}</div>
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--color-gray-800)', lineHeight: 1.55, flex: 1 }}>{a.text}</div>
+                                            {a.type === 'setup' && <Link href="/settings" style={{ color: st.color, flexShrink: 0 }}><ArrowRight size={16} /></Link>}
                                         </div>
-                                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', fontFamily: 'var(--font-mono)' }}>
-                                            {item.time}
-                                            {item.priority === 'high' && !item.done && (
-                                                <span style={{ marginLeft: '0.5rem', color: 'var(--color-red-500)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>● Priority</span>
-                                            )}
-                                        </div>
+                                    );
+                                })}
+                                <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)' }}>
+                                    {updatedAt && t('common.updatedAt', { time: updatedAt.toLocaleTimeString(lang === 'en' ? 'en-IN' : lang === 'hi' ? 'hi-IN' : 'or-IN', { hour: '2-digit', minute: '2-digit' }) })}
+                                </div>
+                            </div>
+
+                            {/* ── Live field sensors ── */}
+                            <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <h2 style={h2}>{t('dash.liveField')}</h2>
+                                    <span className={`badge ${sensors?.source === 'device' ? 'badge-green' : 'badge-blue'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? 'var(--color-green-500)' : 'var(--color-gray-400)', animation: connected ? 'pulse 2s infinite' : 'none' }} />
+                                        {sensors?.source === 'device' ? <><Cpu size={11} /> {t('dash.sensorDevice')}</> : <><Radio size={11} /> {t('dash.sensorVirtual')}</>}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Metric icon={<Thermometer size={14} />} label={t('dash.panelTemp')} value={sensors?.panelTempC != null ? `${num(sensors.panelTempC, 1)}°C` : '—'}
+                                        hint={sensors?.panelTempUncooledC != null ? t('dash.withoutCrops', { t: num(sensors.panelTempUncooledC, 1) }) : undefined} />
+                                    <Metric icon={<Leaf size={14} />} label={t('dash.bioCooling')} value={sensors?.bioCoolingDeltaC != null ? `−${num(sensors.bioCoolingDeltaC, 1)}°C` : '—'} hint={t('dash.bioCoolingHint')} />
+                                    <Metric icon={<Droplets size={14} />} label={t('dash.soilMoisture')} value={sensors?.soilMoisturePct != null ? `${num(sensors.soilMoisturePct, 1)}%` : '—'}
+                                        hint={sensors?.soilTempC != null ? t('dash.soilTemp', { t: num(sensors.soilTempC, 1) }) : undefined} />
+                                    <Metric icon={<Sun size={14} />} label={t('dash.sunlight')} value={sensors?.irradianceWm2 != null ? `${num(sensors.irradianceWm2)} W/m²` : '—'}
+                                        hint={sensors?.parCrop != null ? t('dash.parCrop', { v: num(sensors.parCrop) }) : undefined} />
+                                    <Metric icon={<Thermometer size={14} />} label={t('dash.underCanopy')} value={sensors?.underCanopyTempC != null ? `${num(sensors.underCanopyTempC, 1)}°C` : '—'}
+                                        hint={sensors?.ambientTempC != null ? t('dash.openAir', { t: num(sensors.ambientTempC, 1) }) : undefined} />
+                                    <Metric icon={<Gauge size={14} />} label={t('dash.soilNpk')}
+                                        value={sensors?.soilN != null ? `${num(sensors.soilN)}/${num(sensors.soilP)}/${num(sensors.soilK)}` : '—'}
+                                        hint={sensors?.soilN != null ? 'N/P/K mg/kg' : t('dash.needsProbe')} />
+                                </div>
+                                {sensors?.source !== 'device' && (
+                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)', lineHeight: 1.5 }}>
+                                        {t('dash.virtualNote')} <Link href="/settings#devices" style={{ color: 'var(--color-green-700)' }}>{t('dash.connectDevice')}</Link>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Weather ── */}
+                        {data.weather && (
+                            <div className="card">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.875rem' }}>
+                                    {wxIcon(data.weather.description, !data.weather.isDay, 32)}
+                                    <div>
+                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700 }}>{data.weather.temperature}°C</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{t('wx.' + data.weather.description.replace(/ /g, '_'))} · {data.weather.location}</div>
+                                    </div>
+                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-gray-600)', flexWrap: 'wrap' }}>
+                                        <span>{t('wx.humidity')}: {data.weather.humidity}%</span>
+                                        <span>{t('wx.wind')}: {data.weather.windSpeed} km/h</span>
+                                        <span>{t('wx.sunrise')}: {data.weather.sunrise}</span>
+                                        <span>{t('wx.sunset')}: {data.weather.sunset}</span>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* LIVE SOLAR STATUS */}
-                    <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <div>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    {isNight ? <Moon size={20} strokeWidth={1.75} color="var(--color-blue-400)" /> : <Zap size={20} strokeWidth={1.75} color="var(--color-solar-500)" />}
-                                    {isNight ? 'Solar — Offline' : "Today's Solar Status"}
-                                </h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', marginTop: '0.125rem' }}>
-                                    {isNight ? 'Panels resting — summary below' : 'Real-time • suncalc + weather data'}
-                                </p>
-                            </div>
-                            <a href="/solar" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-solar-600)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', fontFamily: 'var(--font-body)' }}>
-                                Details <ArrowRight size={12} />
-                            </a>
-                        </div>
-
-                        {/* Efficiency Gauge */}
-                        <div style={{
-                            textAlign: 'center', padding: '1.25rem',
-                            background: theme.solarGauge,
-                            borderRadius: 'var(--radius-xl)', marginBottom: '0.75rem',
-                        }}>
-                            <div style={{
-                                fontFamily: 'var(--font-display)', fontSize: '3rem', fontWeight: 800,
-                                color: isNight ? 'var(--color-gray-400)' : solar.efficiency > 70 ? 'var(--color-green-700)' : 'var(--color-solar-600)',
-                                letterSpacing: '-0.03em', transition: 'color 0.5s ease',
-                            }}>
-                                {solar.efficiency}%
-                            </div>
-                            <div style={{ fontSize: '0.8125rem', color: isNight ? 'var(--color-gray-500)' : 'var(--color-gray-600)', fontWeight: 500 }}>
-                                {isNight ? 'Panels Offline' : 'Panel Efficiency'}
-                            </div>
-                            {!isNight && (
-                                <div style={{ fontSize: '0.75rem', color: 'var(--color-green-600)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
-                                    <TrendingUp size={14} /> +3% bio-cooling • Sun at {Math.round(solar.sunPos.altitudeDeg)}°
+                                <div className="scrollbar-hide" style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(88px, 1fr)', gap: '0.5rem', overflowX: 'auto' }}>
+                                    {data.forecast.map((f, i) => (
+                                        <div key={f.date} style={{ textAlign: 'center', padding: '0.625rem 0.25rem', borderRadius: 'var(--radius-lg)', background: i === 0 ? 'var(--color-green-50)' : 'var(--color-gray-50)', border: '1px solid var(--color-gray-100)' }}>
+                                            <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-gray-600)' }}>{i === 0 ? t('common.today') : date(f.date, { weekday: 'short' })}</div>
+                                            <div style={{ display: 'flex', justifyContent: 'center', margin: '0.375rem 0' }}>{wxIcon(f.description)}</div>
+                                            <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{f.tempMax}° <span style={{ color: 'var(--color-gray-400)', fontWeight: 500 }}>{f.tempMin}°</span></div>
+                                            <div style={{ fontSize: '0.625rem', color: 'var(--color-blue-600)', marginTop: '0.125rem' }}>{f.rain >= 0.5 ? `${Math.round(f.rain)} mm` : `${f.rainChance ?? 0}%`}</div>
+                                            <div style={{ fontSize: '0.625rem', color: 'var(--color-solar-600)' }}>☀ {f.radiationKwhM2}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                            {/* Day progress bar */}
-                            <div style={{ marginTop: '0.75rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-gray-400)', marginBottom: '0.25rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Sunrise size={12} /> {solar.sunTimes.sunrise.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                                    <span>{solar.dayProgress}%</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Sunset size={12} /> {solar.sunTimes.sunset.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                                </div>
-                                <div style={{ height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px' }}>
-                                    <div style={{ height: '100%', width: `${solar.dayProgress}%`, borderRadius: '2px', background: isNight ? 'var(--color-blue-400)' : 'var(--color-solar-500)', transition: 'width 1s ease' }} />
-                                </div>
+                                <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-400)', marginTop: '0.5rem' }}>{t('wx.legend')}</div>
                             </div>
-                        </div>
+                        )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        {/* ── Energy chart / solar setup ── */}
+                        {solar ? (
+                            <div className="card">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <h2 style={h2}>{t('dash.energy30')}</h2>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
+                                        {t('dash.energy30Summary', { kwh: num(solar.last30.energyKwh), rs: num(solar.last30.revenue), cool: num(solar.last30.bioCoolingGainKwh, 1) })}
+                                    </div>
+                                </div>
+                                <div style={{ height: 220 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={chart} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="kwh" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
+                                                    <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                                            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={18} />
+                                            <YAxis tick={{ fontSize: 10 }} unit="" />
+                                            <Tooltip formatter={(v) => [`${v} kWh`, t("dash.energy")]} />
+                                            <Area type="monotone" dataKey="kwh" stroke="#d97706" strokeWidth={2} fill="url(#kwh)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-400)' }}>{t('dash.energyMethod')}</div>
+                            </div>
+                        ) : (
+                            <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', background: 'var(--color-solar-50)', borderColor: 'var(--color-solar-200)' }}>
+                                <Sun size={28} color="var(--color-solar-600)" />
+                                <div style={{ flex: 1, minWidth: 200 }}>
+                                    <div style={{ fontWeight: 700 }}>{t('dash.setupTitle')}</div>
+                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-gray-600)' }}>{t('dash.setupBody')}</div>
+                                </div>
+                                <Link href="/settings" className="btn-solar" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Settings2 size={15} /> {t('dash.setupCta')}</Link>
+                            </div>
+                        )}
+
+                        {/* ── Quick tools ── */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {[
-                                { label: solar.efficiency > 0 ? `Generating ${solar.energy} kWh today (live)` : `Today's total: ${solar.energy} kWh — panels offline`, icon: <Zap size={16} color={solar.energy > 0 ? 'var(--color-solar-500)' : 'var(--color-gray-400)'} /> },
-                                { label: getTiltRecommendation(solar.currentTilt, solar.optimalTilt), icon: <TrendingUp size={16} color="var(--color-solar-500)" /> },
-                                { label: `Bio-cooling active — crops reducing panel temp by ${Math.round(2 + solar.sunIntensity * 2)}°C`, icon: <Thermometer size={16} color="var(--color-blue-500)" /> },
-                            ].map((item, i) => (
-                                <div key={i} style={{
-                                    display: 'flex', alignItems: 'center', gap: '0.625rem',
-                                    padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-lg)',
-                                    background: 'var(--color-gray-50)', fontSize: '0.8125rem', color: 'var(--color-gray-600)',
-                                }}>
-                                    {item.icon} {item.label}
-                                </div>
+                                { href: '/scan', icon: <ScanLine size={18} />, label: t('nav.scan') },
+                                { href: '/market', icon: <TrendingUp size={18} />, label: `${t('nav.market')} · ${t('crop.' + data.market.crop)} ₹${num(data.market.currentPrice)}` },
+                                { href: '/solar', icon: <Sun size={18} />, label: t('nav.solar') },
+                                { href: '/carbon', icon: <Leaf size={18} />, label: t('nav.carbon') },
+                            ].map((q) => (
+                                <Link key={q.href} href={q.href} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', textDecoration: 'none', color: 'var(--color-gray-800)', fontSize: '0.8125rem', fontWeight: 600, padding: '0.875rem' }}>
+                                    <span style={{ color: 'var(--color-green-600)' }}>{q.icon}</span> <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.label}</span>
+                                </Link>
                             ))}
                         </div>
-                    </div>
-                </div>
-
-                {/* ═══ 7-DAY WEATHER FORECAST ═══ */}
-                <div className="card" style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <div>
-                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-gray-800)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <CloudSun size={20} strokeWidth={1.75} color="var(--color-blue-500)" />
-                                7-Day Weather Forecast
-                            </h3>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', marginTop: '0.125rem' }}>
-                                {forecast ? 'Live from OpenWeatherMap API' : 'Forecast data loading...'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="scrollbar-hide" style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                        {(forecast || []).slice(0, 7).map((d: any, i: number) => {
-                            const dayName = d.day || new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short' });
-                            const dateStr = d.date ? new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
-                            const clouds = d.clouds ?? 30;
-                            const eff = d.solarEfficiency ?? Math.max(50, 100 - clouds * 0.4);
-                            const desc = d.description || (clouds > 60 ? 'Cloudy' : clouds > 30 ? 'Partly cloudy' : 'Clear sky');
-                            const isToday = i === 0;
-                            const weatherIcon = clouds > 70 ? <CloudRain size={22} color="var(--color-blue-500)" />
-                                : clouds > 50 ? <Cloud size={22} color="var(--color-gray-400)" />
-                                    : clouds > 25 ? <CloudSun size={22} color="var(--color-solar-500)" />
-                                        : <Sun size={22} color="var(--color-solar-500)" />;
-
-                            return (
-                                <div key={i} style={{
-                                    textAlign: 'center' as const, padding: '0.75rem 0.375rem',
-                                    borderRadius: 'var(--radius-xl)',
-                                    background: isToday ? 'linear-gradient(135deg, var(--color-green-50), var(--color-blue-50))' : 'var(--color-gray-50)',
-                                    border: isToday ? '2px solid var(--color-green-300)' : '1px solid transparent',
-                                    animation: `fadeIn 0.3s ease ${i * 0.06}s forwards`,
-                                    animationFillMode: 'backwards',
-                                    flexShrink: 0,
-                                    minWidth: '120px',
-                                    flex: '1 0 120px',
-                                }}>
-                                    {/* Day label */}
-                                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: isToday ? 'var(--color-green-700)' : 'var(--color-gray-700)', marginBottom: '0.125rem' }}>
-                                        {isToday ? 'Today' : dayName}
-                                    </div>
-                                    <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-400)', marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>
-                                        {dateStr}
-                                    </div>
-
-                                    {/* Weather icon */}
-                                    <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
-                                        {weatherIcon}
-                                    </div>
-
-                                    {/* Temp range */}
-                                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--color-gray-800)', fontSize: '1rem', letterSpacing: '-0.02em' }}>
-                                        {d.tempMax ?? '--'}°
-                                    </div>
-                                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', fontFamily: 'var(--font-mono)', marginBottom: '0.375rem' }}>
-                                        {d.tempMin ?? '--'}°C
-                                    </div>
-
-                                    {/* Condition */}
-                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-gray-500)', textTransform: 'capitalize', marginBottom: '0.375rem', lineHeight: 1.2, minHeight: '1.5em' }}>
-                                        {desc}
-                                    </div>
-
-                                    {/* Humidity bar */}
-                                    <div style={{ fontSize: '0.5625rem', color: 'var(--color-blue-500)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.15rem' }}>
-                                        <Droplets size={9} /> {d.humidity ?? '--'}%
-                                    </div>
-
-                                    {/* Solar efficiency indicator */}
-                                    <div style={{
-                                        marginTop: '0.25rem', padding: '0.125rem 0.375rem',
-                                        borderRadius: 'var(--radius-full)',
-                                        background: eff >= 80 ? 'rgba(34,197,94,0.1)' : eff >= 60 ? 'rgba(245,158,11,0.1)' : 'rgba(156,163,175,0.15)',
-                                        fontSize: '0.5625rem', fontWeight: 600, fontFamily: 'var(--font-mono)',
-                                        color: eff >= 80 ? 'var(--color-green-600)' : eff >= 60 ? 'var(--color-solar-600)' : 'var(--color-gray-500)',
-                                    }}>
-                                        ⚡{Math.round(eff)}%
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* ═══ BOTTOM WIDGETS ═══ */}
-                <div className="grid-3">
-                    {/* Live Weather */}
-                    <div className="card">
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                            {weather ? getWeatherIcon(weather.description, isNight) : <CloudSun size={18} color="var(--color-solar-500)" />}
-                            Weather
-                            {weather?.location && <span style={{ fontSize: '0.6875rem', fontWeight: 400, color: 'var(--color-gray-400)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><MapPin size={10} />{weather.location}</span>}
-                        </h4>
-                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.25rem', fontWeight: 800, color: 'var(--color-gray-800)', letterSpacing: '-0.02em' }}>
-                            {weather?.temperature ?? '--'}°C
-                        </div>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-gray-500)', marginBottom: '0.5rem', textTransform: 'capitalize' }}>
-                            {weather?.description ?? 'Loading...'}
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-gray-400)', flexWrap: 'wrap' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Droplets size={12} /> {weather?.humidity ?? '--'}%</span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Wind size={12} /> {weather?.windSpeed ?? '--'} km/h</span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Cloud size={12} /> {weather?.clouds ?? '--'}%</span>
-                        </div>
-                        <div style={{ marginTop: '0.5rem', fontSize: '0.6875rem', color: 'var(--color-gray-400)', display: 'flex', gap: '1rem' }}>
-                            <span>☀️ {weather?.sunrise}</span>
-                            <span>🌙 {weather?.sunset}</span>
-                        </div>
-                    </div>
-
-                    {/* Market Pulse */}
-                    <div className="card">
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                            <BarChart3 size={18} color="var(--color-blue-600)" /> Market Pulse
-                        </h4>
-                        {[
-                            { crop: 'Tomato', price: '₹2,650/q', trend: '+5.2%' },
-                            { crop: 'Turmeric', price: '₹8,200/q', trend: '+2.1%' },
-                            { crop: 'Rice', price: '₹1,890/q', trend: '-0.8%' },
-                        ].map(item => (
-                            <div key={item.crop} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.375rem 0', fontSize: '0.8125rem', borderBottom: '1px solid var(--color-gray-100)' }}>
-                                <span style={{ color: 'var(--color-gray-700)', fontWeight: 500 }}>{item.crop}</span>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-gray-800)' }}>{item.price}</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: item.trend.startsWith('+') ? 'var(--color-green-600)' : 'var(--color-red-500)', fontSize: '0.75rem' }}>{item.trend}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Crop Health */}
-                    <div className="card">
-                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-gray-800)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                            <Activity size={18} color="var(--color-green-600)" /> Crop Health
-                        </h4>
-                        {[
-                            { crop: 'Tomato', status: 'Healthy', pct: 92 },
-                            { crop: 'Turmeric', status: 'Monitor', pct: 78 },
-                            { crop: 'Spinach', status: 'Healthy', pct: 95 },
-                        ].map(item => (
-                            <div key={item.crop} style={{ marginBottom: '0.625rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>
-                                    <span style={{ color: 'var(--color-gray-700)', fontWeight: 500 }}>{item.crop}</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: item.pct > 85 ? 'var(--color-green-600)' : 'var(--color-solar-600)' }}>{item.pct}%</span>
-                                </div>
-                                <div style={{ height: '4px', background: 'var(--color-gray-100)', borderRadius: '2px' }}>
-                                    <div style={{ height: '100%', width: `${item.pct}%`, borderRadius: '2px', background: item.pct > 85 ? 'var(--color-green-500)' : 'var(--color-solar-400)', transition: 'width 0.5s ease' }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
+        </div>
+    );
+}
+
+const h2: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-gray-900)' };
+
+function Metric({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
+    return (
+        <div style={{ padding: '0.625rem', borderRadius: 'var(--radius-lg)', background: 'var(--color-gray-50)', border: '1px solid var(--color-gray-100)', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.6875rem', color: 'var(--color-gray-500)' }}>{icon} {label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-gray-900)', marginTop: '0.125rem' }}>{value}</div>
+            {hint && <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-400)', marginTop: '0.125rem' }}>{hint}</div>}
         </div>
     );
 }

@@ -1,394 +1,109 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/lib/auth';
+import { wakeBackend } from '@/lib/api';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { Zap, Sprout, Sun, Mic, TrendingUp, Leaf, Radar, Satellite, BrainCircuit, Smartphone, Tractor, Wallet, ArrowRight } from 'lucide-react';
 
 export default function Home() {
-  const [backendStatus, setBackendStatus] = useState<string>('Checking...');
-  const [backendData, setBackendData] = useState<any>(null);
+    const { t } = useI18n();
+    const { isAuthenticated } = useAuth();
+    useEffect(() => { wakeBackend(); }, []);
 
-  useEffect(() => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-    const backendRoot = apiBase.replace('/api', '');
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const features = [
+        { icon: <Sprout size={22} />, k: 'crop' },
+        { icon: <Sun size={22} />, k: 'solar' },
+        { icon: <Mic size={22} />, k: 'voice' },
+        { icon: <TrendingUp size={22} />, k: 'market' },
+        { icon: <Leaf size={22} />, k: 'carbon' },
+        { icon: <Radar size={22} />, k: 'district' },
+    ];
+    const steps = [
+        { icon: <Satellite size={20} />, k: 1 }, { icon: <BrainCircuit size={20} />, k: 2 }, { icon: <Smartphone size={20} />, k: 3 },
+        { icon: <Tractor size={20} />, k: 4 }, { icon: <Wallet size={20} />, k: 5 },
+    ];
+    const targets = [
+        { v: '+5–15%', k: 'energy' }, { v: '20–30%', k: 'water' }, { v: '3', k: 'langs' }, { v: '24×7', k: 'live' },
+    ];
 
-    fetch(backendRoot + '/', { signal: controller.signal })
-      .then(res => res.json())
-      .then(data => {
-        clearTimeout(timer);
-        setBackendStatus('✅ Connected');
-        setBackendData(data);
-      })
-      .catch(() => {
-        clearTimeout(timer);
-        setBackendStatus('❌ Not Running');
-      });
+    return (
+        <div style={{ minHeight: '100vh', background: 'var(--color-gray-50)' }}>
+            <header style={{ background: 'linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%)', color: 'white' }}>
+                <div style={{ maxWidth: 1120, margin: '0 auto', padding: '1rem clamp(1rem, 4vw, 2rem)', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, #34d399, #fbbf24)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Zap size={18} strokeWidth={2.5} color="#064e3b" />
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.125rem' }}>AgroVolt AI</div>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <LanguageSwitcher variant="dark" />
+                        <Link href={isAuthenticated ? '/dashboard' : '/login'} style={navBtn}>{isAuthenticated ? t('nav.dashboard') : t('auth.signIn')}</Link>
+                    </div>
+                </div>
+                <div style={{ maxWidth: 1120, margin: '0 auto', padding: 'clamp(2.5rem, 8vw, 5rem) clamp(1rem, 4vw, 2rem)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.75 }}>{t('land.kicker')}</div>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 6vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, margin: '0.75rem 0', maxWidth: 760, letterSpacing: '-0.02em' }}>
+                        {t('land.title')}
+                    </h1>
+                    <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.1875rem)', opacity: 0.85, maxWidth: 640, lineHeight: 1.6 }}>{t('land.sub')}</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.75rem', flexWrap: 'wrap' }}>
+                        <Link href={isAuthenticated ? '/dashboard' : '/register'} style={{ ...cta, background: '#fbbf24', color: '#064e3b' }}>
+                            {isAuthenticated ? t('land.open') : t('land.start')} <ArrowRight size={16} />
+                        </Link>
+                        {!isAuthenticated && <Link href="/login" style={{ ...cta, background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>{t('auth.signIn')}</Link>}
+                    </div>
+                </div>
+            </header>
 
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, []);
+            <main style={{ maxWidth: 1120, margin: '0 auto', padding: '2.5rem clamp(1rem, 4vw, 2rem)' }}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3" style={{ marginTop: '-4.5rem' }}>
+                    {targets.map((s) => (
+                        <div key={s.k} className="card" style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.625rem', fontWeight: 800, color: 'var(--color-green-700)' }}>{s.v}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-600)' }}>{t('land.t.' + s.k)}</div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-400)', textAlign: 'center', marginTop: '0.5rem' }}>{t('land.targetsNote')}</div>
 
-  const features = [
-    {
-      icon: '🌾',
-      title: 'Crop Intelligence',
-      desc: 'AI-powered crop recommendations based on soil type, weather, and market demand. Disease detection with 90%+ accuracy.',
-      items: ['Shade-tolerant crop suggestions', 'Yield prediction', 'Disease scanning'],
-    },
-    {
-      icon: '⚡',
-      title: 'Solar Optimization',
-      desc: 'Maximize panel efficiency with AR tilt guidance and bio-cooling from crops. 10-18% efficiency improvement.',
-      items: ['Optimal tilt calculation', 'Soiling detection', 'Performance tracking'],
-    },
-    {
-      icon: '💰',
-      title: 'Carbon Credits',
-      desc: 'Earn from sustainable farming practices. Track water savings and CO2 reduction. ₹5,000-₹10,000 additional income.',
-      items: ['Automated calculation', 'Digital wallet', 'Withdrawal system'],
-    },
-  ];
+                <h2 style={h2}>{t('land.modules')}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {features.map((f) => (
+                        <div key={f.k} className="card">
+                            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--color-green-50)', color: 'var(--color-green-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.icon}</div>
+                            <div style={{ fontWeight: 700, fontSize: '1.0625rem', marginTop: '0.75rem' }}>{t('land.f.' + f.k)}</div>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', lineHeight: 1.6, marginTop: '0.375rem' }}>{t('land.f.' + f.k + '.d')}</p>
+                        </div>
+                    ))}
+                </div>
 
-  const stats = [
-    { value: '10-18%', label: 'Solar Efficiency Gain' },
-    { value: '20-30%', label: 'Water Savings' },
-    { value: '₹40,000', label: 'Additional Annual Income' },
-    { value: '1.2 tons', label: 'CO₂ Reduction/Acre' },
-  ];
+                <h2 style={h2}>{t('land.how')}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    {steps.map((s) => (
+                        <div key={s.k} className="card" style={{ position: 'relative' }}>
+                            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-green-600)' }}>{t('land.step', { n: s.k })}</div>
+                            <div style={{ color: 'var(--color-green-700)', margin: '0.5rem 0' }}>{s.icon}</div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>{t('land.s' + s.k)}</div>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--color-gray-600)', lineHeight: 1.55, marginTop: '0.25rem' }}>{t('land.s' + s.k + '.d')}</p>
+                        </div>
+                    ))}
+                </div>
 
-  const techStack = ['Next.js', 'TypeScript', 'Node.js', 'Express', 'MongoDB', 'TailwindCSS', 'JWT Auth', 'REST API'];
-
-  return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, var(--color-green-50) 0%, var(--color-blue-50) 50%, var(--color-solar-50) 100%)' }}>
-
-      {/* ─── Navigation ─── */}
-      <nav style={{
-        background: 'rgba(255,255,255,0.90)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid var(--color-green-100)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-      }}>
-        <div style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          padding: '0.75rem 1.25rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
-            <span style={{ fontSize: '1.375rem', lineHeight: 1 }}>🌾⚡</span>
-            <span style={{
-              fontSize: 'clamp(1rem, 5vw, 1.375rem)',
-              fontWeight: 800,
-              fontFamily: 'var(--font-display)',
-              background: 'linear-gradient(135deg, var(--color-green-700), var(--color-blue-600))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em',
-            }}>AgroVolt AI</span>
-          </div>
-
-          {/* Right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexShrink: 0 }}>
-            {/* Backend status — hidden on mobile */}
-            {backendStatus !== 'Checking...' && (
-              <span className="hidden sm:flex" style={{
-                fontSize: '0.6875rem', fontWeight: 600, whiteSpace: 'nowrap' as const,
-                padding: '0.2rem 0.5rem', borderRadius: 999,
-                background: backendStatus.includes('✅') ? 'var(--color-green-50)' : 'var(--color-red-50)',
-                color: backendStatus.includes('✅') ? 'var(--color-green-700)' : 'var(--color-red-600)',
-                border: `1px solid ${backendStatus.includes('✅') ? 'var(--color-green-200)' : 'var(--color-red-200)'}`,
-              }}>
-                {backendStatus}
-              </span>
-            )}
-            <Link href="/login" style={{
-              fontSize: '0.875rem', fontWeight: 600,
-              color: 'var(--color-green-600)', textDecoration: 'none',
-              padding: '0.35rem 0.625rem', whiteSpace: 'nowrap' as const,
-            }}>
-              Login
-            </Link>
-            <Link href="/register" className="btn-primary" style={{
-              fontSize: 'clamp(0.75rem, 3vw, 0.875rem)',
-              padding: '0.375rem 0.875rem',
-              whiteSpace: 'nowrap' as const,
-            }}>
-              Get Started
-            </Link>
-          </div>
+                <div className="card" style={{ marginTop: '2.5rem', textAlign: 'center', background: 'linear-gradient(135deg, var(--color-green-50), var(--color-solar-50))' }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.375rem', fontWeight: 800 }}>{t('land.ctaTitle')}</div>
+                    <p style={{ color: 'var(--color-gray-600)', margin: '0.5rem auto 1rem', maxWidth: 560 }}>{t('land.ctaSub')}</p>
+                    <Link href={isAuthenticated ? '/dashboard' : '/register'} style={{ ...cta, background: 'var(--color-green-600)', color: 'white', display: 'inline-flex' }}>{isAuthenticated ? t('land.open') : t('land.start')} <ArrowRight size={16} /></Link>
+                </div>
+            </main>
+            <footer style={{ textAlign: 'center', padding: '2rem 1rem', fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
+                {t('land.footer')}
+            </footer>
         </div>
-      </nav>
-
-      {/* ─── Hero Section ─── */}
-      <section style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '4rem 1.5rem 2rem',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          display: 'inline-block',
-          marginBottom: '1.25rem',
-          padding: '0.375rem 1rem',
-          background: 'var(--color-green-100)',
-          color: 'var(--color-green-700)',
-          borderRadius: 'var(--radius-full)',
-          fontSize: '0.8125rem',
-          fontWeight: 600,
-        }}>
-          🚀 Production-Ready Pilot Version
-        </div>
-        <h2 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 'clamp(2.25rem, 5vw, 3.5rem)',
-          fontWeight: 800,
-          color: 'var(--color-gray-900)',
-          marginBottom: '1rem',
-          lineHeight: 1.15,
-          letterSpacing: '-0.02em',
-        }}>
-          India's First<br />
-          <span style={{
-            background: 'linear-gradient(135deg, var(--color-green-600), var(--color-blue-600))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>
-            Bio-Solar Intelligence Platform
-          </span>
-        </h2>
-        <p style={{
-          fontSize: '1.125rem',
-          color: 'var(--color-gray-500)',
-          maxWidth: 640,
-          margin: '0 auto 2rem',
-          lineHeight: 1.7,
-        }}>
-          Optimize Agrivoltaic farming with AI. Generate dual income from crops and solar energy while saving water and earning carbon credits.
-        </p>
-
-        {/* CTA Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-          <Link href="/dashboard" className="btn-primary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
-            View Dashboard Demo
-          </Link>
-          <Link href="/register" className="btn-secondary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
-            Get Started Free
-          </Link>
-        </div>
-
-        {/* Backend Status (conditional) */}
-        {backendData && (
-          <div className="card" style={{
-            maxWidth: 440,
-            margin: '0 auto',
-            background: 'linear-gradient(135deg, var(--color-green-50), var(--color-blue-50))',
-            border: '2px solid var(--color-green-200)',
-            textAlign: 'left',
-          }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem' }}>🎉 Backend is Live!</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', fontSize: '0.8125rem' }}>
-              <p><strong>Message:</strong> {backendData.message}</p>
-              <p><strong>Version:</strong> {backendData.version}</p>
-              <p><strong>Status:</strong> <span style={{ color: 'var(--color-green-600)', fontWeight: 700 }}>{backendData.status}</span></p>
-              <p style={{ color: 'var(--color-gray-400)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                ✅ 25+ API endpoints ready &nbsp;|&nbsp; ✅ 7 database models &nbsp;|&nbsp; ✅ JWT auth
-              </p>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* ─── Feature Cards ─── */}
-      <section style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '2rem 1.5rem',
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '1.5rem',
-        }}>
-          {features.map((f) => (
-            <div key={f.title} className="card" style={{
-              display: 'flex',
-              flexDirection: 'column',
-              transition: 'box-shadow 0.3s, transform 0.3s',
-            }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-xl)';
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-md)';
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-              }}
-            >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{f.icon}</div>
-              <h3 style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.375rem',
-                fontWeight: 700,
-                marginBottom: '0.5rem',
-                color: 'var(--color-gray-800)',
-              }}>{f.title}</h3>
-              <p style={{
-                fontSize: '0.9375rem',
-                color: 'var(--color-gray-500)',
-                lineHeight: 1.65,
-                flex: 1,
-                marginBottom: '1rem',
-              }}>{f.desc}</p>
-              <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                {f.items.map((item) => (
-                  <li key={item} style={{ fontSize: '0.8125rem', color: 'var(--color-gray-500)', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ color: 'var(--color-green-500)', fontWeight: 700 }}>✓</span> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Impact Stats ─── */}
-      <section style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '2rem 1.5rem',
-      }}>
-        <div style={{
-          background: 'linear-gradient(135deg, var(--color-green-700), var(--color-blue-600))',
-          borderRadius: 'var(--radius-xl)',
-          padding: '2.5rem 2rem',
-          boxShadow: 'var(--shadow-xl)',
-        }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.75rem',
-            fontWeight: 800,
-            color: '#fff',
-            textAlign: 'center',
-            marginBottom: '2rem',
-          }}>Expected Impact</h3>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '1.5rem',
-            textAlign: 'center',
-          }}>
-            {stats.map((s) => (
-              <div key={s.label} style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.375rem',
-              }}>
-                <span style={{ fontSize: '2rem', fontWeight: 800, color: '#fff' }}>{s.value}</span>
-                <span style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Tech Stack ─── */}
-      <section style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '3rem 1.5rem 1rem',
-        textAlign: 'center',
-      }}>
-        <h3 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '1.5rem',
-          fontWeight: 700,
-          color: 'var(--color-gray-800)',
-          marginBottom: '1.25rem',
-        }}>Built with Production-Grade Technology</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem' }}>
-          {techStack.map(tech => (
-            <span key={tech} style={{
-              padding: '0.5rem 1rem',
-              background: '#fff',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--shadow-sm)',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--color-gray-700)',
-              border: '1px solid var(--color-gray-100)',
-            }}>{tech}</span>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Bottom CTA ─── */}
-      <section style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '3rem 1.5rem',
-      }}>
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, var(--color-blue-50), var(--color-green-50))',
-          border: '2px solid var(--color-green-200)',
-          textAlign: 'center',
-          padding: '3rem 2rem',
-        }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.75rem',
-            fontWeight: 800,
-            color: 'var(--color-gray-900)',
-            marginBottom: '0.75rem',
-          }}>Ready to Transform Agriculture?</h3>
-          <p style={{
-            fontSize: '1rem',
-            color: 'var(--color-gray-500)',
-            maxWidth: 560,
-            margin: '0 auto 1.5rem',
-            lineHeight: 1.7,
-          }}>
-            Join the agrivoltaic revolution. Empower farmers with AI-driven insights for dual income and sustainable farming.
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <Link href="/register" className="btn-primary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
-              Start Free Trial
-            </Link>
-            <a href="https://github.com/SagarSwain05/agrovolt-ai" target="_blank" rel="noopener noreferrer"
-              className="btn-secondary" style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}>
-              View on GitHub
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Footer ─── */}
-      <footer style={{
-        background: 'var(--color-gray-800)',
-        color: '#fff',
-        padding: '2.5rem 1.5rem',
-        marginTop: '2rem',
-        textAlign: 'center',
-      }}>
-        <p style={{ fontSize: '1.0625rem', marginBottom: '0.5rem' }}>Built with ❤️ for Indian Farmers</p>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--color-gray-400)' }}>
-          Empowering Rural India with AI &nbsp;|&nbsp; AgroVolt AI © 2026
-        </p>
-        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1.25rem', fontSize: '0.875rem' }}>
-          <a href="https://github.com/SagarSwain05/agrovolt-ai" style={{ color: 'var(--color-green-400)', textDecoration: 'none' }}>GitHub</a>
-          <span style={{ color: 'var(--color-gray-600)' }}>|</span>
-          <Link href="/dashboard" style={{ color: 'var(--color-green-400)', textDecoration: 'none' }}>Dashboard</Link>
-          <span style={{ color: 'var(--color-gray-600)' }}>|</span>
-          <Link href="/register" style={{ color: 'var(--color-green-400)', textDecoration: 'none' }}>Register</Link>
-        </div>
-      </footer>
-    </div>
-  );
+    );
 }
+
+const h2: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, margin: '2.5rem 0 1rem' };
+const cta: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.75rem 1.375rem', borderRadius: '999px', fontWeight: 700, textDecoration: 'none', fontSize: '0.9375rem' };
+const navBtn: React.CSSProperties = { padding: '0.4rem 0.875rem', borderRadius: '999px', background: 'white', color: 'var(--color-green-800)', fontWeight: 700, fontSize: '0.8125rem', textDecoration: 'none' };

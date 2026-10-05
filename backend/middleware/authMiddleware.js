@@ -54,3 +54,29 @@ exports.admin = (req, res, next) => {
     });
   }
 };
+
+// Attach req.user when a valid Bearer token is present, but never reject.
+exports.optionalAuth = async (req, res, next) => {
+  const h = req.headers.authorization;
+  if (h && h.startsWith("Bearer ")) {
+    try {
+      const decoded = jwt.verify(h.split(" ")[1], process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select("-password");
+    } catch { /* anonymous */ }
+  }
+  next();
+};
+
+// For EventSource streams, which cannot send headers: token arrives as ?token=
+exports.protectQueryToken = async (req, res, next) => {
+  try {
+    const token = req.query.token || (req.headers.authorization || "").split(" ")[1];
+    if (!token) return res.status(401).json({ success: false, message: "Not authorized, no token" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select("-password");
+    if (!req.user) return res.status(401).json({ success: false, message: "User not found" });
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Not authorized, token failed" });
+  }
+};

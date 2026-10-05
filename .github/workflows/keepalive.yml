@@ -1,0 +1,15 @@
+name: Keep backend warm
+
+# Render's free tier sleeps after 15 min idle; the first request then takes ~50 s.
+# A ping every 10 minutes keeps the API responsive (one service fits the 750 h/month free quota).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: curl -fsS --max-time 90 https://agrovolt-backend.onrender.com/health || true

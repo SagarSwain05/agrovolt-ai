@@ -2,6 +2,23 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Farm = require("../models/Farm");
+const axios = require("axios");
+
+/** Resolve "district, state" to coordinates (OpenStreetMap Nominatim). */
+async function geocodeDistrict(district, state) {
+  if (!district) return null;
+  try {
+    const { data } = await axios.get("https://nominatim.openstreetmap.org/search", {
+      params: { q: `${district}, ${state || "Odisha"}, India`, format: "json", limit: 1, addressdetails: 1 },
+      headers: { "User-Agent": "AgroVolt-AI/1.0 (agrovolt-ai.vercel.app)" },
+      timeout: 8000,
+    });
+    if (!data?.[0]) return null;
+    return { latitude: Number(data[0].lat), longitude: Number(data[0].lon), state: data[0].address?.state };
+  } catch {
+    return null;
+  }
+}
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -15,7 +32,7 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, farmName, farmSize, location } = req.body;
+    const { name, email, password, phone, farmName, farmSize, location, language, soilType } = req.body;
 
     // Validation
     if (!name || !email || !password) {
@@ -43,24 +60,30 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      phone
+      phone,
+      language
     });
 
-    // Create farm if details provided
-    if (farmSize || farmName || location) {
-      const loc = location || {};
+    // Every account gets a farm (defaults are editable in Settings)
+    {
+      const loc = { ...(location || {}) };
+      if (!Number(loc.latitude) || !Number(loc.longitude)) {
+        const g = await geocodeDistrict(loc.district || req.body.district, loc.state || req.body.state);
+        if (g) Object.assign(loc, { latitude: g.latitude, longitude: g.longitude, state: loc.state || g.state });
+      }
       const actualFarmName = farmName || `${name}'s Farm`;
       const actualFarmSize = farmSize || 2; // Default size if empty
       const farm = await Farm.create({
         userId: user._id,
         farmName: actualFarmName,
         farmSize: actualFarmSize,
+        ...(soilType ? { soilType } : {}),
         location: {
-          latitude: loc.latitude || 20.5937,
-          longitude: loc.longitude || 78.9629,
+          latitude: Number(loc.latitude) || 20.2961,
+          longitude: Number(loc.longitude) || 85.8245,
           address: loc.address || "",
-          district: loc.district || "",
-          state: loc.state || ""
+          district: loc.district || req.body.district || "",
+          state: loc.state || req.body.state || "Odisha"
         }
       });
 
@@ -75,7 +98,10 @@ exports.register = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        language: user.language,
+        farmId: user.farmId,
         token: generateToken(user._id)
       }
     });
@@ -104,7 +130,7 @@ exports.login = async (req, res) => {
     }
 
     // Check user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -128,7 +154,9 @@ exports.login = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        language: user.language,
         farmId: user.farmId,
         token: generateToken(user._id)
       }

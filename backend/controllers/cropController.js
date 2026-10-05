@@ -59,7 +59,7 @@ exports.getRecommendations = async (req, res) => {
     }
 
     // ═══ DYNAMIC SHADE FACTOR ═══
-    const panelCoverage = farm.solarInstalled ? 0.40 : 0.0; // 40% default coverage
+    const panelCoverage = farm.solarInstalled ? (farm.shadeCoverage ?? 35) / 100 : 0.0;
     const globalAvgIrradiance = 4.5; // kWh/m²/day world average
     const shadeFactor = panelCoverage * (solarIrradiance / globalAvgIrradiance);
 

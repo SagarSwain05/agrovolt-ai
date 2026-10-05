@@ -1,6 +1,48 @@
 const MarketData = require("../models/MarketData");
 const Farm = require("../models/Farm");
 const priceForecaster = require("../mlModels/priceForecaster");
+const agmarknet = require("../services/agmarknetLive");
+const { haversineKm, geocodeMandi } = require("../services/geo");
+
+/**
+ * Live mandi prices for the farm's state with net-of-transport ranking.
+ * Returns null when the live feed is unreachable or has no records.
+ */
+async function liveMandiPrices(crop, farm) {
+  try {
+    const live = await agmarknet.getLive(crop, farm.location?.state || "Odisha");
+    if (!live.records.length) return null;
+    const byMarket = new Map();
+    for (const r of live.records) {
+      const prev = byMarket.get(r.market);
+      if (!prev || new Date(prev.arrival_date.split("/").reverse().join("-")) < new Date(r.arrival_date.split("/").reverse().join("-"))) byMarket.set(r.market, r);
+    }
+    const rate = priceForecaster.transportCostPerKmQ;
+    const rows = [];
+    let geocoded = 0;
+    for (const r of byMarket.values()) {
+      let km = null;
+      const loc = await geocodeMandi(r.market, r.district, r.state, geocoded < 6);
+      if (loc?.fresh) geocoded++;
+      if (loc && farm.location?.latitude) km = Math.round(haversineKm(farm.location.latitude, farm.location.longitude, loc.lat, loc.lon) * 1.25); // road factor
+      const price = Number(r.modal_price);
+      const transportCost = km != null ? Math.round(km * rate) : null;
+      rows.push({
+        mandi: r.market, district: r.district, state: r.state, type: "apmc",
+        distance_km: km, distance: km != null ? `${km} km` : "—",
+        price, minPrice: Number(r.min_price), maxPrice: Number(r.max_price),
+        transportCost, netProfit: transportCost != null ? price - transportCost : price,
+        trend: "stable", demand: "medium", variety: r.variety,
+        lastUpdated: r.arrival_date.split("/").reverse().join("-"), source: "live",
+      });
+    }
+    rows.sort((a, b) => b.netProfit - a.netProfit);
+    return { rows: rows.slice(0, 15), scope: live.scope, commodity: live.commodity, fetchedAt: live.fetchedAt };
+  } catch (e) {
+    console.error("[market] live feed unavailable:", e.message);
+    return null;
+  }
+}
 
 // @desc    Get market prices with net arbitrage
 // @route   GET /api/market/prices
@@ -20,8 +62,8 @@ exports.getMarketPrices = async (req, res) => {
     const district = farm.location?.district || "Khordha";
     const crop = cropName || "Tomato";
 
-    // ML-based mandi price lookup with net arbitrage
-    const prices = priceForecaster.getMandiPrices(crop, district);
+    const live = await liveMandiPrices(crop, farm);
+    const prices = live ? live.rows : priceForecaster.getMandiPrices(crop, district);
 
     const avgPrice = prices.reduce((sum, p) => sum + p.price, 0) / prices.length;
     const bestNetProfit = prices[0]?.netProfit || 0;
@@ -32,6 +74,9 @@ exports.getMarketPrices = async (req, res) => {
       data: {
         crop,
         prices,
+        source: live ? "live" : "snapshot",
+        sourceLabel: live ? `Agmarknet live · ${live.scope}` : "Agmarknet snapshot (offline fallback)",
+        fetchedAt: live?.fetchedAt || null,
         analysis: {
           avgPrice: Math.round(avgPrice),
           bestPrice: prices[0]?.price || 0,
@@ -56,7 +101,9 @@ exports.getPriceTrends = async (req, res) => {
     const { cropName } = req.query;
     const crop = cropName || "Tomato";
 
-    const result = priceForecaster.forecast(crop, 14);
+    const farm = await Farm.findOne({ userId: req.user._id });
+    const daily = await agmarknet.getHistory(crop, farm?.location?.state).catch(() => []);
+    const result = priceForecaster.forecast(crop, 14, { daily });
     if (result.error) {
       return res.status(400).json({ success: false, message: result.error });
     }
@@ -74,6 +121,8 @@ exports.getPriceTrends = async (req, res) => {
         upcomingEvents: result.upcomingEvents,
         algorithm: result.algorithm,
         dataSource: result.dataSource,
+        isLive: result.isLive,
+        asOf: result.asOf,
       }
     });
   } catch (error) {

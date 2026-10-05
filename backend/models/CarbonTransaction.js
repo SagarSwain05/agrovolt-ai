@@ -36,6 +36,9 @@ const CarbonTransactionSchema = new mongoose.Schema(
     description: {
       type: String
     },
+    sourceDay: {
+      type: String // 'YYYY-MM-DD' for automatic daily accruals from the energy ledger
+    },
     timestamp: {
       type: Date,
       default: Date.now
@@ -45,5 +48,7 @@ const CarbonTransactionSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+CarbonTransactionSchema.index({ farmId: 1, sourceDay: 1 }, { unique: true, partialFilterExpression: { sourceDay: { $type: "string" } } });
 
 module.exports = mongoose.model("CarbonTransaction", CarbonTransactionSchema);

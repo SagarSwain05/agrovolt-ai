@@ -360,7 +360,9 @@ exports.scanPanelDefect = async (req, res) => {
         }));
 
         if (kbEntry) {
-            const li = Math.floor(Math.random() * (kbEntry.effLoss?.length || 1));
+            // Higher detection confidence → upper end of the documented loss range
+            const n = kbEntry.effLoss?.length || 1;
+            const li = Math.min(n - 1, Math.floor((confPct / 100) * n));
             return res.json({
                 success: true,
                 data: {

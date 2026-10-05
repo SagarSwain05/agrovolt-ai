@@ -31,12 +31,15 @@ const FarmSchema = new mongoose.Schema(
     },
     soilType: {
       type: String,
-      enum: ["clay", "loamy", "sandy", "silt", "peat", "chalk"],
+      enum: ["clay", "loamy", "sandy", "silt", "peat", "chalk", "alluvial", "red", "black", "laterite"],
       default: "loamy"
     },
     solarInstalled: {
       type: Boolean,
       default: false
+    },
+    solarSince: {
+      type: Date // installation / commissioning date — energy & carbon ledger starts here
     },
     solarCapacityKW: {
       type: Number,
@@ -53,6 +56,28 @@ const FarmSchema = new mongoose.Schema(
     panelCount: {
       type: Number,
       default: 0
+    },
+    panelAzimuth: {
+      type: Number, // degrees, 180 = facing south
+      default: 180
+    },
+    shadeCoverage: {
+      type: Number, // % of cropped land shaded by the array
+      default: 35,
+      min: 0,
+      max: 90
+    },
+    cropUnderPanels: {
+      type: String, // current understory crop, drives bio-cooling coefficient
+      default: "general"
+    },
+    tariffPerKwh: {
+      type: Number, // ₹ earned/saved per kWh (PM-KUSUM feed-in or avoided cost)
+      default: 6
+    },
+    annualRainfall: {
+      type: Number, // mm
+      default: 1450
     },
     crops: [
       {

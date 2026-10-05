@@ -1,6 +1,8 @@
 const Farm = require("../models/Farm");
 const SolarData = require("../models/SolarData");
 const solarPosition = require("../mlModels/solarPosition");
+const ledger = require("../services/energyLedger");
+const weather = require("../services/weatherService");
 
 // @desc    Get solar optimization data
 // @route   GET /api/solar/optimize
@@ -31,8 +33,39 @@ exports.getSolarOptimization = async (req, res) => {
     const currentTilt = farm.panelTilt || 20;
     const capacity = farm.solarCapacityKW || 5;
 
-    // NREL Solar Position Analysis
-    const analysis = solarPosition.analyze(latitude, longitude, currentTilt, capacity, 'ginger');
+    await ledger.ensureLedger(farm).catch((e) => console.error("ledger:", e.message));
+
+    // NREL Solar Position Analysis, with bio-cooling at today's real max temperature
+    const crop = farm.cropUnderPanels || 'general';
+    const analysis = solarPosition.analyze(latitude, longitude, currentTilt, capacity, crop);
+    try {
+      const fc = await weather.getForecast(latitude, longitude);
+      const tmax = fc.forecast[0]?.tempMax;
+      if (tmax != null) analysis.bioCooling = solarPosition.bioCoolingEffect(tmax, crop, farm.shadeCoverage ?? 35);
+      analysis.peakSunHoursToday = fc.forecast[0]?.radiationKwhM2;
+      // Hourly AC power today and daily generation forecast from real irradiance
+      const physics = require("../services/agrivoltaicPhysics");
+      const om = await weather.getOpenMeteo(latitude, longitude);
+      const today = om.current.time.slice(0, 10);
+      const tf = physics.tiltFactor(currentTilt, analysis.optimalTilt);
+      analysis.hourlyToday = om.hourly.time
+        .map((ts, i) => ({ ts, G: om.hourly.shortwave_radiation[i] || 0, T: om.hourly.temperature_2m[i] }))
+        .filter((h) => h.ts.startsWith(today))
+        .map((h) => {
+          const pt = physics.panelTemperature(h.T, h.G, crop, farm.shadeCoverage ?? 35);
+          return {
+            hour: Number(h.ts.slice(11, 13)),
+            irradiance: Math.round(h.G),
+            powerW: Math.round(physics.instantPowerW({ capacityKW: capacity, irradianceWm2: h.G, panelTempC: pt.cooled, tiltFactor: tf })),
+            panelTempC: Math.round(pt.cooled * 10) / 10,
+          };
+        });
+      analysis.currentHour = Number(om.current.time.slice(11, 13));
+      analysis.forecast7 = fc.forecast.map((f) => {
+        const e = physics.dailyEnergy({ capacityKW: capacity, peakSunHours: f.radiationKwhM2, tempMaxC: f.tempMax, crop, shadeCoveragePct: farm.shadeCoverage ?? 35, tiltFactor: tf, et0Mm: f.et0 || 4 });
+        return { date: f.date, kwh: Math.round(e.energyKwh * 10) / 10, revenue: Math.round(e.energyKwh * (farm.tariffPerKwh || 6)), radiation: f.radiationKwhM2, tempMax: f.tempMax, description: f.description };
+      });
+    } catch (e) { console.error("solar weather:", e.message); }
 
     // Get recent solar data
     const recentData = await SolarData.find({ farmId: farm._id })
@@ -67,6 +100,13 @@ exports.getSolarOptimization = async (req, res) => {
         energyEstimate: analysis.energyEstimate,
         sunrise: analysis.sunrise,
         sunset: analysis.sunset,
+        hourlyToday: analysis.hourlyToday || [],
+        currentHour: analysis.currentHour,
+        forecast7: analysis.forecast7 || [],
+        peakSunHoursToday: analysis.peakSunHoursToday,
+        shadeCoverage: farm.shadeCoverage,
+        cropUnderPanels: crop,
+        tariffPerKwh: farm.tariffPerKwh,
         recommendations: {
           tiltAdjustment: analysis.tiltDifference > 3
             ? `Adjust tilt to ${analysis.optimalTilt}° for ${analysis.efficiencyGain} efficiency gain`
@@ -140,6 +180,8 @@ exports.getSolarHistory = async (req, res) => {
         message: "Farm not found"
       });
     }
+
+    await ledger.ensureLedger(farm).catch((e) => console.error("ledger:", e.message));
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));

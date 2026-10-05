@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 import {
     LayoutDashboard,
     Wheat,
@@ -15,27 +16,30 @@ import {
     FileText,
     Landmark,
     Settings,
+    Radar,
     ChevronLeft,
     ChevronRight,
     LogOut,
 } from 'lucide-react';
 
 const navItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { href: '/crops', icon: Wheat, label: 'Crop Intelligence' },
-    { href: '/solar', icon: Zap, label: 'Solar Optimization' },
-    { href: '/market', icon: BarChart3, label: 'Market Intelligence' },
-    { href: '/carbon', icon: Leaf, label: 'Carbon Wallet' },
-    { href: '/scan', icon: ScanLine, label: 'Scan Hub' },
-    { href: '/profit', icon: IndianRupee, label: 'Profit Tracker' },
-    { href: '/reports', icon: FileText, label: 'AI Reports' },
-    { href: '/subsidies', icon: Landmark, label: 'Subsidies' },
-    { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/dashboard', icon: LayoutDashboard, label: 'nav.dashboard' },
+    { href: '/crops', icon: Wheat, label: 'nav.crops' },
+    { href: '/solar', icon: Zap, label: 'nav.solar' },
+    { href: '/market', icon: BarChart3, label: 'nav.market' },
+    { href: '/carbon', icon: Leaf, label: 'nav.carbon' },
+    { href: '/scan', icon: ScanLine, label: 'nav.scan' },
+    { href: '/profit', icon: IndianRupee, label: 'nav.profit' },
+    { href: '/reports', icon: FileText, label: 'nav.reports' },
+    { href: '/subsidies', icon: Landmark, label: 'nav.subsidies' },
+    { href: '/district', icon: Radar, label: 'nav.district' },
+    { href: '/settings', icon: Settings, label: 'nav.settings' },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
+    const { t } = useI18n();
     const [collapsed, setCollapsed] = useState(false);
 
     // ── KEY FIX: Update the CSS variable so the main content area resizes ──
@@ -86,7 +90,7 @@ export default function Sidebar() {
                             AgroVolt AI
                         </div>
                         <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' as const, fontFamily: 'var(--font-body)' }}>
-                            Bio-Solar Intelligence
+                            {t('brand.tagline')}
                         </div>
                     </div>
                 )}
@@ -102,7 +106,7 @@ export default function Sidebar() {
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                title={collapsed ? item.label : undefined}
+                                title={collapsed ? t(item.label) : undefined}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -127,7 +131,7 @@ export default function Sidebar() {
                                 }}
                             >
                                 <IconComp size={18} strokeWidth={isActive ? 2 : 1.75} style={{ flexShrink: 0 }} />
-                                {!collapsed && <span>{item.label}</span>}
+                                {!collapsed && <span>{t(item.label)}</span>}
                                 {isActive && !collapsed && (
                                     <div
                                         style={{
@@ -184,15 +188,15 @@ export default function Sidebar() {
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ color: 'white', fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {user.name || 'Farmer'}
+                                {user.name || t('common.farmer')}
                             </div>
                             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6875rem' }}>
-                                {user.role || 'farmer'}
+                                {t('role.' + (user.role || 'farmer'))}
                             </div>
                         </div>
                         <button
                             onClick={logout}
-                            title="Logout"
+                            title={t('nav.logout')}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: '4px' }}
                         >
                             <LogOut size={14} />
@@ -221,7 +225,7 @@ export default function Sidebar() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                 >
-                    {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /> Collapse</>}
+                    {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /> {t('nav.collapse')}</>}
                 </button>
             </div>
         </aside>

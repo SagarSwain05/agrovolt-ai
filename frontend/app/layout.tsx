@@ -1,5 +1,6 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import Providers from './providers'
 
 export const metadata: Metadata = {
   title: 'AgroVolt AI — Bio-Solar Intelligence Platform',
@@ -13,6 +14,12 @@ export const metadata: Metadata = {
   },
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#047857',
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -20,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><Providers>{children}</Providers></body>
     </html>
   )
 }

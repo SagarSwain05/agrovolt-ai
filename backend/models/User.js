@@ -1,5 +1,12 @@
 const mongoose = require("mongoose");
 
+function normalizeLang(v) {
+  const s = String(v || "").toLowerCase();
+  if (s.startsWith("hi")) return "hi";
+  if (s.startsWith("or") || s.startsWith("od")) return "or";
+  return "en";
+}
+
 const UserSchema = new mongoose.Schema(
   {
     name: {
@@ -41,8 +48,10 @@ const UserSchema = new mongoose.Schema(
       default: "free"
     },
     language: {
+      // 'en' | 'hi' | 'or' — older accounts may hold 'hindi'/'english'; normalise with normalizeLang()
       type: String,
-      default: "hindi"
+      default: "en",
+      set: (v) => normalizeLang(v)
     },
     isActive: {
       type: Boolean,
@@ -55,3 +64,4 @@ const UserSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("User", UserSchema);
+module.exports.normalizeLang = normalizeLang;

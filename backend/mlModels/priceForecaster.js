@@ -44,8 +44,10 @@ class PriceForecaster {
      * Holt-Winters Triple Exponential Smoothing (Additive)
      * Uses monthly data for seasonal pattern, daily data for level/trend
      */
-    forecast(cropName, forecastDays = 14) {
-        const daily = this.getDailyHistory(cropName);
+    forecast(cropName, forecastDays = 14, opts = {}) {
+        // opts.daily: live history accumulated from data.gov.in; otherwise the bundled snapshot
+        const daily = opts.daily && opts.daily.length >= 7 ? opts.daily : this.getDailyHistory(cropName);
+        const isLive = daily === opts.daily;
         const monthly = this.getMonthlyHistory(cropName);
 
         if (daily.length < 7) {
@@ -167,7 +169,9 @@ class PriceForecaster {
             upcomingEvents: upcomingEvents.slice(0, 3),
             msp: agmarknet.crops[cropName]?.msp || null,
             algorithm: 'Holt-Winters Triple Exponential Smoothing',
-            dataSource: 'Agmarknet via data.gov.in',
+            dataSource: isLive ? 'Agmarknet live (data.gov.in)' : 'Agmarknet snapshot (data.gov.in)',
+            isLive,
+            asOf: daily[n - 1].date,
             dataPoints: n,
             modelVersion: '2.0.0',
         };
@@ -182,6 +186,7 @@ class PriceForecaster {
         if (!crop) return [];
 
         const dailyData = crop.daily_recent;
+        const asOf = dailyData?.length ? dailyData[dailyData.length - 1].date : null;
         const basePrice = dailyData && dailyData.length > 0
             ? dailyData[dailyData.length - 1].price
             : 2000;
@@ -219,7 +224,8 @@ class PriceForecaster {
                 netProfit,
                 trend,
                 demand,
-                lastUpdated: new Date().toISOString(),
+                lastUpdated: asOf,
+                source: 'snapshot',
             };
         }).sort((a, b) => b.netProfit - a.netProfit); // Sort by NET PROFIT, not raw price
     }

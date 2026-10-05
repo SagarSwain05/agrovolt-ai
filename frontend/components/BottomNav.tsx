@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 import {
     LayoutDashboard,
     ScanLine,
@@ -17,29 +18,32 @@ import {
     FileText,
     Landmark,
     Settings,
+    Radar,
 } from 'lucide-react';
 
 /* Primary tabs always visible (5 items) */
 const primaryItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { href: '/crops', icon: Wheat, label: 'Crops' },
-    { href: '/scan', icon: ScanLine, label: 'Scan', isFab: true },
-    { href: '/solar', icon: Zap, label: 'Solar' },
-    { href: '/market', icon: BarChart3, label: 'Market' },
+    { href: '/dashboard', icon: LayoutDashboard, label: 'nav.home' },
+    { href: '/crops', icon: Wheat, label: 'nav.cropsShort' },
+    { href: '/scan', icon: ScanLine, label: 'nav.scanShort', isFab: true },
+    { href: '/solar', icon: Zap, label: 'nav.solarShort' },
+    { href: '/market', icon: BarChart3, label: 'nav.marketShort' },
 ];
 
 /* Overflow items that slide up in a drawer */
 const moreItems = [
-    { href: '/carbon', icon: Leaf, label: 'Carbon' },
-    { href: '/profit', icon: IndianRupee, label: 'Profit' },
-    { href: '/reports', icon: FileText, label: 'Reports' },
-    { href: '/subsidies', icon: Landmark, label: 'Subsidies' },
-    { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/carbon', icon: Leaf, label: 'nav.carbonShort' },
+    { href: '/profit', icon: IndianRupee, label: 'nav.profitShort' },
+    { href: '/reports', icon: FileText, label: 'nav.reportsShort' },
+    { href: '/subsidies', icon: Landmark, label: 'nav.subsidies' },
+    { href: '/district', icon: Radar, label: 'nav.districtShort' },
+    { href: '/settings', icon: Settings, label: 'nav.settings' },
 ];
 
 export default function BottomNav() {
     const pathname = usePathname();
     const [showMore, setShowMore] = useState(false);
+    const { t } = useI18n();
     const isMoreActive = moreItems.some(i => pathname === i.href);
 
     return (
@@ -86,7 +90,7 @@ export default function BottomNav() {
                                         className="text-[10px] font-medium mt-0.5"
                                         style={{ color: isActive ? 'var(--color-green-600)' : '#6b7280' }}
                                     >
-                                        {item.label}
+                                        {t(item.label)}
                                     </span>
                                 </Link>
                             );
@@ -137,7 +141,7 @@ export default function BottomNav() {
                                     className="text-[10px] mt-1 font-semibold"
                                     style={{ color: isActive ? 'var(--color-green-600)' : '#6b7280' }}
                                 >
-                                    {item.label}
+                                    {t(item.label)}
                                 </span>
                             </div>
                         );
@@ -163,7 +167,7 @@ export default function BottomNav() {
                                 className="text-[10px] font-medium mt-0.5"
                                 style={{ color: isActive ? 'var(--color-green-600)' : '#6b7280' }}
                             >
-                                {item.label}
+                                {t(item.label)}
                             </span>
                         </Link>
                     );
@@ -194,7 +198,7 @@ export default function BottomNav() {
                         className="text-[10px] font-medium mt-0.5"
                         style={{ color: showMore || isMoreActive ? 'var(--color-green-600)' : '#6b7280' }}
                     >
-                        More
+                        {t('nav.more')}
                     </span>
                 </button>
             </nav>

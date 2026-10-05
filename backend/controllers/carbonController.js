@@ -2,6 +2,7 @@ const Farm = require("../models/Farm");
 const SolarData = require("../models/SolarData");
 const CarbonTransaction = require("../models/CarbonTransaction");
 const esgGenerator = require("../utils/esgCertificate");
+const ledger = require("../services/energyLedger");
 
 // Calculate carbon credits using IPCC-verified emission factors
 const calculateCarbonCredits = (energyKWh, waterLiters) => {
@@ -35,6 +36,8 @@ exports.getCarbonWallet = async (req, res) => {
         message: "Farm not found"
       });
     }
+
+    await ledger.ensureLedger(farm).catch((e) => console.error("ledger:", e.message));
 
     // Get all carbon transactions
     const transactions = await CarbonTransaction.find({
@@ -83,11 +86,16 @@ exports.getCarbonWallet = async (req, res) => {
           lastUpdated: new Date()
         },
         transactions: transactions.slice(0, 10), // Last 10 transactions
-        insights: {
-          monthlyAverage: Math.round((totalCredits / 12) * 1000) / 1000,
-          projectedAnnual: Math.round((totalCredits / 12) * 12 * 1000) / 1000,
-          ranking: "Top 15% in your district"
-        }
+        insights: (() => {
+          const days = new Set(transactions.filter((t) => t.sourceDay).map((t) => t.sourceDay)).size;
+          const perDay = days ? totalCredits / days : 0;
+          return {
+            accrualDays: days,
+            monthlyAverage: Math.round(perDay * 30 * 1000) / 1000,
+            projectedAnnual: Math.round(perDay * 365 * 1000) / 1000,
+            projectedAnnualInr: Math.round(perDay * 365 * marketRate),
+          };
+        })()
       }
     });
   } catch (error) {
@@ -161,7 +169,9 @@ exports.calculateCredits = async (req, res) => {
 // @access  Private
 exports.withdrawCredits = async (req, res) => {
   try {
-    const { credits, method } = req.body;
+    const { method, buyerId } = req.body;
+    const credits = Number(req.body.credits);
+    if (!(credits > 0)) return res.status(400).json({ success: false, message: "Enter a positive number of credits" });
     const farm = await Farm.findOne({ userId: req.user._id });
 
     if (!farm) {
@@ -192,13 +202,17 @@ exports.withdrawCredits = async (req, res) => {
       });
     }
 
+    // Sell to a marketplace buyer at their bid, otherwise at the reference rate
+    const market = require("../mlModels/carbonIntelligence").marketplace || [];
+    const buyer = buyerId ? market.find((b) => b.buyer_name === buyerId || b.logo_code === buyerId) : null;
+    const rate = buyer?.bid_price_per_credit || 1500;
     const transaction = await CarbonTransaction.create({
       userId: req.user._id,
       farmId: farm._id,
       creditsEarned: credits,
       transactionType: "withdrawn",
-      monetaryValue: credits * 1500,
-      description: `Withdrawal via ${method || "bank transfer"}`
+      monetaryValue: Math.round(credits * rate * 100) / 100,
+      description: buyer ? `Sold to ${buyer.buyer_name || buyer.name} @ ₹${rate}/credit` : `Withdrawal via ${method || "bank transfer"}`
     });
 
     res.status(201).json({
@@ -207,7 +221,8 @@ exports.withdrawCredits = async (req, res) => {
       data: {
         transaction,
         processingTime: "3-5 business days",
-        amount: credits * 1500
+        rate,
+        amount: Math.round(credits * rate * 100) / 100
       }
     });
   } catch (error) {
@@ -233,6 +248,8 @@ exports.getCarbonHistory = async (req, res) => {
         message: "Farm not found"
       });
     }
+
+    await ledger.ensureLedger(farm).catch((e) => console.error("ledger:", e.message));
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));
@@ -260,25 +277,60 @@ exports.getCarbonHistory = async (req, res) => {
 // @access  Private
 exports.generateCertificate = async (req, res) => {
   try {
-    const { solarKwhGenerated, waterSavedLiters, bioCoolingDegrees, days } = req.body;
-    const user = req.user;
+    const Certificate = require("../models/Certificate");
+    const days = Math.min(365, Math.max(1, parseInt(req.body?.days) || 30));
+    const farm = await Farm.findOne({ userId: req.user._id });
+    if (!farm) return res.status(404).json({ success: false, message: "Farm not found" });
+    await ledger.ensureLedger(farm).catch(() => {});
 
-    const certificate = esgGenerator.generateCertificate(
-      { name: user.name, district: 'Khordha', state: 'Odisha' },
-      { solarKwhGenerated: solarKwhGenerated || 0, waterSavedLiters: waterSavedLiters || 0, bioCoolingDegrees: bioCoolingDegrees || 0, days: days || 30 }
+    const since = new Date(Date.now() - days * 86400000);
+    const rows = await SolarData.find({ farmId: farm._id, date: { $gte: since }, isPartial: { $ne: true } }).sort({ date: 1 }).lean();
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "No completed generation days yet — set up solar in Settings first." });
+    }
+    const solarKwh = rows.reduce((s, r) => s + (r.energyProduced || 0), 0);
+    const water = rows.reduce((s, r) => s + (r.waterSavedLiters || 0), 0);
+    const cooling = rows.reduce((s, r) => s + (r.bioCoolingDeltaC || 0), 0) / rows.length;
+
+    const out = esgGenerator.generateCertificate(
+      { name: req.user.name, district: farm.location.district, state: farm.location.state },
+      { solarKwhGenerated: solarKwh, waterSavedLiters: water, bioCoolingDegrees: cooling, days }
     );
+    const origin = (process.env.FRONTEND_URL || "https://agrovolt-ai.vercel.app").replace(/\/$/, "");
+    out.certificate.verificationUrl = `${origin}/verify/${out.certificate.id}`;
+    out.certificate.period = { start: rows[0].day, end: rows[rows.length - 1].day, days: rows.length };
 
-    res.json({
-      success: true,
-      data: certificate
+    await Certificate.create({
+      certId: out.certificate.id, userId: req.user._id, farmId: farm._id, issuedTo: req.user.name,
+      district: farm.location.district, state: farm.location.state,
+      periodStart: rows[0].day, periodEnd: rows[rows.length - 1].day,
+      solarKwh: Math.round(solarKwh * 10) / 10, waterSavedLiters: Math.round(water),
+      co2AvoidedKg: out.carbonSavings.totalKgCo2, credits: out.carbonSavings.totalTonnesCo2,
+      verificationHash: out.certificate.verificationHash, payload: out,
     });
+    res.json({ success: true, data: out });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
+};
+
+// @desc    Public certificate verification
+// @route   GET /api/carbon/verify/:certId
+// @access  Public
+exports.verifyCertificate = async (req, res) => {
+  const Certificate = require("../models/Certificate");
+  const c = await Certificate.findOne({ certId: req.params.certId }).lean();
+  if (!c) return res.status(404).json({ success: false, message: "Certificate not found" });
+  res.json({
+    success: true,
+    data: {
+      certId: c.certId, issuedTo: c.issuedTo, district: c.district, state: c.state,
+      issuedAt: c.createdAt, periodStart: c.periodStart, periodEnd: c.periodEnd,
+      solarKwh: c.solarKwh, waterSavedLiters: c.waterSavedLiters, co2AvoidedKg: c.co2AvoidedKg, credits: c.credits,
+      verificationHash: c.verificationHash, methodology: c.payload?.verification?.methodology,
+    },
+  });
 };
 
 // @desc    Get full carbon intelligence (SOC, methane, price forecast, yield prediction)
@@ -290,13 +342,39 @@ exports.getIntelligence = async (req, res) => {
     const farm = await Farm.findOne({ userId: req.user._id });
     const { soilType, cropType, irrigationType } = req.query;
 
+    if (!farm) return res.status(404).json({ success: false, message: "Farm not found" });
+    await ledger.ensureLedger(farm).catch(() => {});
+    const txs = await CarbonTransaction.find({ farmId: farm._id }).sort({ timestamp: -1 }).lean();
+    const earned = txs.filter((t) => t.transactionType === "earned");
+    const credits = earned.reduce((s, t) => s + t.creditsEarned, 0) - txs.filter((t) => t.transactionType === "withdrawn").reduce((s, t) => s + t.creditsEarned, 0);
+    const co2 = earned.reduce((s, t) => s + (t.co2ReducedKg || 0), 0);
+    const water = earned.reduce((s, t) => s + (t.waterSavedLiters || 0), 0);
+    const kwh = (await SolarData.aggregate([{ $match: { farmId: farm._id } }, { $group: { _id: null, k: { $sum: "$energyProduced" } } }]))[0]?.k || 0;
+
     const intel = carbonIntel.getFullIntelligence({
-      soilType: soilType || farm?.soilType || 'loamy',
-      farmAreaHa: farm?.area || 1.2,
-      panelCoverage: 0.4,
-      cropType: cropType || 'rice',
+      soilType: soilType || farm.soilType || 'loamy',
+      farmAreaHa: (farm.farmSize || 1) * 0.4047,
+      panelCoverage: (farm.shadeCoverage ?? 35) / 100,
+      cropType: cropType || (farm.cropUnderPanels && farm.cropUnderPanels !== 'general' ? farm.cropUnderPanels : 'rice'),
       irrigationType: irrigationType || 'awd',
+      currentCredits: Math.max(0, Math.round(credits * 1000) / 1000),
+      co2Kg: Math.round(co2),
+      waterLiters: Math.round(water),
+      solarKwh: Math.round(kwh),
     });
+    intel.farmer_id = `AV-${String(farm._id).slice(-6).toUpperCase()}`;
+    // Real ledger instead of the illustrative one
+    intel.transaction_ledger = txs.slice(0, 20).map((t) => ({
+      transaction_id: `TXN-${String(t._id).slice(-8).toUpperCase()}`,
+      date: t.timestamp,
+      type: t.transactionType === "earned" ? "MINT" : "SELL",
+      description: t.description,
+      credit_impact: `${t.transactionType === "earned" ? "+" : "-"}${(t.creditsEarned || 0).toFixed(4)}`,
+      monetary_estimate_inr: Math.round(t.monetaryValue || 0),
+      verification_status: t.transactionType === "earned" ? "VERIFIED" : "SETTLED",
+      verification_hash: carbonIntel.generateVerificationHash({ id: String(t._id), credits: t.creditsEarned, day: t.sourceDay }),
+      auditor_ai: t.sourceDay ? "AgroVolt Energy Ledger (Open-Meteo irradiance)" : "Manual entry",
+    }));
 
     res.json({
       success: true,

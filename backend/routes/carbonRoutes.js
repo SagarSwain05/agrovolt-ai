@@ -6,7 +6,8 @@ const {
   withdrawCredits,
   getCarbonHistory,
   generateCertificate,
-  getIntelligence
+  getIntelligence,
+  verifyCertificate
 } = require("../controllers/carbonController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -16,5 +17,6 @@ router.post("/withdraw", protect, withdrawCredits);
 router.get("/history", protect, getCarbonHistory);
 router.post("/certificate", protect, generateCertificate);
 router.get("/intelligence", protect, getIntelligence);
+router.get("/verify/:certId", verifyCertificate);
 
 module.exports = router;

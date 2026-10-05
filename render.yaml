@@ -6,6 +6,7 @@ services:
     rootDir: backend
     buildCommand: npm install
     startCommand: node server.js
+    healthCheckPath: /health
     plan: free
     envVars:
       - key: NODE_ENV
@@ -15,6 +16,20 @@ services:
       - key: MONGO_URI
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://agrovolt-ai.vercel.app
       - key: OPENWEATHER_API_KEY
         sync: false
+      - key: AGMARKNET_API_KEY
+        sync: false
+      - key: ROBOFLOW_API_KEY
+        sync: false
+      - key: ROBOFLOW_MODEL_ID
+        sync: false
+      - key: ROBOFLOW_API_URL
+        sync: false
+      # Free key from https://aistudio.google.com/apikey — enables conversational
+      # Sahayak + server speech-to-text. Without it Sahayak uses the rule engine.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
