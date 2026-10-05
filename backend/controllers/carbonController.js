@@ -296,7 +296,7 @@ exports.generateCertificate = async (req, res) => {
       { name: req.user.name, district: farm.location.district, state: farm.location.state },
       { solarKwhGenerated: solarKwh, waterSavedLiters: water, bioCoolingDegrees: cooling, days }
     );
-    const origin = (process.env.FRONTEND_URL || "https://agrovolt-ai.vercel.app").replace(/\/$/, "");
+    const origin = (/^https?:\/\//.test(process.env.FRONTEND_URL || "") ? process.env.FRONTEND_URL : "https://agrovolt-ai.vercel.app").replace(/\/$/, "");
     out.certificate.verificationUrl = `${origin}/verify/${out.certificate.id}`;
     out.certificate.period = { start: rows[0].day, end: rows[rows.length - 1].day, days: rows.length };
 
