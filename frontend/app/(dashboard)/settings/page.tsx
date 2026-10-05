@@ -214,8 +214,11 @@ curl -X POST ${API_BASE}/v1/telemetry \\
        "power_w":2150,"soil_moisture_pct":31.5,"ambient_temp":32.4,
        "humidity_pct":61,"panel_temp":47.2,"soil_n":210,"soil_p":18,"soil_k":160}'
 
-# MQTT (if enabled on the server): publish to agrovolt/<device>/telemetry
-# payload: {"key":"${newKey.apiKey}", ...same fields}`}</pre>
+# MQTT over secure WebSocket (built-in broker)
+#   URL: ${API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '')}/mqtt
+#   username: anything   password: ${newKey.apiKey}
+#   publish:  agrovolt/node-1/telemetry   (same JSON)
+#   acks:     agrovolt/${newKey.apiKey.slice(0, 10)}/ack`}</pre>
                             <div style={{ color: '#9ca3af', marginTop: '0.375rem' }}>{t('settings.keyFields')}</div>
                         </div>
                     )}

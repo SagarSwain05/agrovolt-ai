@@ -36,6 +36,11 @@ interface RegisterData {
   organization?: string;
 }
 
+export class VerificationRequired extends Error {
+  email: string;
+  constructor(email: string, message?: string) { super(message || 'Email verification required'); this.email = email; }
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -43,7 +48,10 @@ interface AuthContextType {
   /** true while a request is waiting on a sleeping backend */
   waking: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  /** Resolves with `{ needsVerification, email }` when an emailed code must be entered next. */
+  register: (data: RegisterData) => Promise<{ needsVerification: boolean; email: string }>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
+  resetPassword: (email: string, code: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
   isAuthenticated: boolean;
@@ -126,16 +134,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const startSession = (d: Record<string, unknown>) => {
+    const u = normalizeUser(d);
+    setToken(String(d.token));
+    setUser(u);
+    persist(String(d.token), u);
+  };
+
   const login = async (email: string, password: string) => {
     try {
       const res = await withWake(setWaking, () => authAPI.login(email.trim(), password));
-      const d = res.data.data;
-      const u = normalizeUser(d);
-      setToken(d.token);
-      setUser(u);
-      persist(d.token, u);
+      startSession(res.data.data);
     } catch (e) {
+      const err = e as { response?: { data?: { code?: string; email?: string; message?: string } } };
+      if (err.response?.data?.code === 'email_unverified') throw new VerificationRequired(err.response.data.email || email, err.response.data.message);
       throw new Error(apiError(e, 'Login failed'));
+    }
+  };
+
+  const verifyEmail = async (email: string, code: string) => {
+    try {
+      const res = await authAPI.verifyEmail(email.trim(), code.trim());
+      startSession(res.data.data);
+    } catch (e) {
+      throw new Error(apiError(e, 'Verification failed'));
+    }
+  };
+
+  const resetPassword = async (email: string, code: string, password: string) => {
+    try {
+      const res = await authAPI.resetPassword(email.trim(), code.trim(), password);
+      startSession(res.data.data);
+    } catch (e) {
+      throw new Error(apiError(e, 'Reset failed'));
     }
   };
 
@@ -163,10 +194,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       }));
       const d = res.data.data;
-      const u = normalizeUser(d);
-      setToken(d.token);
-      setUser(u);
-      persist(d.token, u);
+      if (d.needsVerification) return { needsVerification: true, email: d.email };
+      startSession(d);
+      return { needsVerification: false, email: d.email };
     } catch (e) {
       throw new Error(apiError(e, 'Registration failed'));
     }
@@ -191,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, waking, login, register, logout, updateUser, isAuthenticated: !!token && !!user }}
+      value={{ user, token, loading, waking, login, register, verifyEmail, resetPassword, logout, updateUser, isAuthenticated: !!token && !!user }}
     >
       {children}
     </AuthContext.Provider>

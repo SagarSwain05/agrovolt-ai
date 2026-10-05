@@ -24,7 +24,7 @@ exports.markRead = async (req, res) => {
 
 // @route GET /api/notifications/config — VAPID key, channels the server can deliver, user prefs
 exports.config = async (req, res) => {
-  const user = await User.findById(req.user._id).select("notificationPrefs phone pushSubscriptions");
+  const user = await User.findById(req.user._id).select("notificationPrefs phone pushSubscriptions email emailVerified");
   res.json({
     success: true,
     data: {
@@ -32,6 +32,8 @@ exports.config = async (req, res) => {
       available: notify.channelsAvailable(),
       prefs: user.notificationPrefs || {},
       phone: user.phone || null,
+      email: user.email,
+      emailVerified: user.emailVerified !== false,
       pushDevices: user.pushSubscriptions?.length || 0,
     },
   });
@@ -51,7 +53,7 @@ exports.subscribe = async (req, res) => {
 exports.prefs = async (req, res) => {
   const user = await User.findById(req.user._id);
   const p = { ...(user.notificationPrefs?.toObject?.() || user.notificationPrefs || {}) };
-  for (const k of ["push", "sms", "whatsapp"]) if (typeof req.body?.[k] === "boolean") p[k] = req.body[k];
+  for (const k of ["email", "push", "sms", "whatsapp"]) if (typeof req.body?.[k] === "boolean") p[k] = req.body[k];
   if (["info", "medium", "high"].includes(req.body?.minLevel)) p.minLevel = req.body.minLevel;
   user.notificationPrefs = p;
   await user.save();

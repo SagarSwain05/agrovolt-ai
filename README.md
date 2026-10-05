@@ -8,6 +8,16 @@ Team Quantum Quirtz · AI for Bharat Hackathon
 
 ---
 
+## Demo accounts
+
+| Role | Email | Password | What to look at |
+|---|---|---|---|
+| Farmer (ଓଡ଼ିଆ) | `farmer@agrovolt.demo` | `Demo@2026` | Khordha, 5 kW over tomato + turmeric; 75 days of ledger, disease alerts, Sahayak in Odia |
+| Farmer (हिन्दी) | `kisan@agrovolt.demo` | `Demo@2026` | Cuttack, 3 kW over rice; Hindi UI and voice |
+| Solar EPC | `epc@agrovolt.demo` | `Demo@2026` | Partner portal with both farms linked (code `EPC-DEMO01`), API keys, webhooks |
+
+Recreate them with `node backend/scripts/seedDemo.js --apply`. The script removes every `@agrovolt.test` account, recreates the demo accounts, and rebuilds their ledgers from real weather. Demo addresses never receive email.
+
 ## What works today
 
 | Module | What it does | Data source |
@@ -26,7 +36,8 @@ Team Quantum Quirtz · AI for Bharat Hackathon
 | **IoT (Phase 2)** | Register ESP32/LoRaWAN nodes, per-device API keys, telemetry ingest, live **Server-Sent Events** stream. Device readings override the weather-driven virtual sensor field by field | `/api/iot/*` |
 | **Disease early warning** | Hourly late blight (≥10 h RH≥90 % / Hutton), early blight, rice blast, sheath blight, fungal leaf and rhizome-rot risk from observed + forecast humidity at the farm (device humidity/leaf wetness override); in-app, web push, SMS/WhatsApp alerts in EN/HI/OR | Open-Meteo hourly + sensors |
 | **Calibrated virtual sensor** | Soil moisture rescaled to the farm's soil (FAO-56 field capacity / wilting point) → plant-available water; irradiance bias from NASA POWER observed vs modelled; device-vs-virtual corrections learned while hardware reports | FAO-56, NASA POWER, devices |
-| **Telemetry v1 + hardware** | `POST /api/v1/telemetry` (snake_case), MQTT bridge, `is_hardware_verified`, meter-register → metered ledger days, open-source ESP32 + RS485/Modbus node (`hardware/esp32-node`) | Devices |
+| **Accounts & email** | Sign-up verification with a 6-digit code emailed through Brevo (EN/HI/OR), forgot/reset password, email alerts (verified addresses, max 4/day/user, global daily cap). Test and demo domains are never emailed | Brevo |
+| **Telemetry v1 + hardware** | `POST /api/v1/telemetry` (snake_case), **built-in MQTT broker** at `wss://<backend>/mqtt` (password = device key, per-device topic isolation), optional external MQTT bridge, `is_hardware_verified`, meter-register → metered ledger days, open-source ESP32 + RS485/Modbus node (`hardware/esp32-node`) | Devices |
 | **Carbon MRV & PoA** | Audit export (PDF / daily CSV / hourly CSV / JSON) with baseline EF, formulas, provenance, tilt history, SHA-256; Programme-of-Activities bundle of farms | Ledger, telemetry |
 | **Partner portal (Phase 4)** | EPC/FPO accounts, farmer↔partner link codes, fleet health (PR, tilt compliance, soiling, device status), white-label `/api/partner/v1` with keys + HMAC-signed webhooks | All engines |
 | **Offline-first PWA** | Installable app, cached pages & last data, daily task checklist offline, offline scan queue (IndexedDB → syncs on reconnect), optional offline Odia voice | Service worker |
@@ -75,10 +86,13 @@ cd frontend && npm install && NEXT_PUBLIC_API_URL=http://localhost:5001 npm run 
 | `AGMARKNET_API_KEY` | for live mandi prices | data.gov.in |
 | `GEMINI_API_KEYS` | optional (comma-separated pool) | Conversational Sahayak, server speech recognition, Odia TTS, translation. Models tried: `gemini-3.5-flash-lite` → `3.1-flash-lite` → `flash-lite-latest` → `3.8-flash`; 503/429 pairs cool down |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | for web push | Phone notifications |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` | optional | SMS / WhatsApp alerts |
+| `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | for email | Verification codes, password reset, email alerts (`EMAIL_DRY_RUN=true` logs instead of sending) |
+| `WEATHER_PROXY_URL`, `WEATHER_PROXY_KEY` | recommended | Vercel relay used when Open-Meteo throttles Render's shared IPs |
+| `MQTT_BROKER` | optional | `off` disables the built-in `/mqtt` broker |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` | optional (not used now) | SMS / WhatsApp alerts; hidden in the UI unless configured |
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` | optional | WhatsApp Cloud API alerts |
 | `BHASHINI_USER_ID`, `BHASHINI_API_KEY` | optional | Govt. Bhashini Odia/Hindi TTS (commercial-friendly) |
-| `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD` | optional | MQTT telemetry bridge |
+| `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD` | optional | Also subscribe to an external broker (HiveMQ/EMQX) |
 | `GRID_EF_KG_PER_KWH`, `GRID_EF_SOURCE` | optional | Override the MRV baseline emission factor |
 | `DISABLE_SCHEDULER` | optional | Turn off background alert/market/ledger jobs (local dev) |
 | `OPENWEATHER_API_KEY` | optional | Place names |

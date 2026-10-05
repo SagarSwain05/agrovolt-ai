@@ -61,11 +61,15 @@ Header `X-Device-Key: avk_…`. Body is a single reading or `{"readings":[…]}`
 - `humidity_pct` and `leaf_wetness_pct` feed the disease early-warning model directly.
 - While the node reports, the backend learns the correction between the device and the virtual sensor. The calibrated virtual sensor keeps working if the node goes offline.
 
-**MQTT (optional):** if the server has `MQTT_URL` set (HiveMQ Cloud, EMQX, Mosquitto), publish the same JSON plus `"key":"avk_…"` to `agrovolt/<node>/telemetry`. Acknowledgements are published to `agrovolt/<node>/ack`.
+**MQTT (default transport):** AgroVolt runs its own broker inside the backend at `wss://agrovolt-backend.onrender.com/mqtt` (MQTT 3.1.1 over secure WebSocket; Render only exposes HTTPS, so raw TCP 1883/8883 is not used).
+- Log in with any username and **password = device key**.
+- Publish to `agrovolt/<any-name>/telemetry`; the payload is the same JSON as the HTTP endpoint.
+- Subscribe to `agrovolt/<first 10 characters of your key>/ack` for results. A device can only read its own acks, and bad keys are refused.
+- The firmware tries MQTT first and falls back to HTTPS automatically.
 
 ## Power & reliability
 
 - The node deep-sleeps between samples, which suits a solar-charged 12 V battery.
 - Samples are taken every 5 min and uploaded every 15 min.
 - Up to 48 readings (~4 h) are kept in RTC memory through Wi-Fi or server outages.
-- The TLS client uses `setInsecure()` for simplicity. Pin the server certificate for production fleets.
+- TLS is verified against the pinned roots in `src/root_ca.h`: GTS Root R4, valid to 2036, and GlobalSign Root CA, valid to Jan 2028. Update the file if the backend moves to another certificate authority.

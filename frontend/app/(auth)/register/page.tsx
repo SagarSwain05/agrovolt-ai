@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useI18n, LANGS } from '@/lib/i18n';
 import AuthShell from '@/components/AuthShell';
+import CodeEntry from '@/components/CodeEntry';
 import type { Lang } from '@/lib/api';
 import { UserPlus, Loader2, AlertCircle, Crosshair, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterPage() {
-    const { register, waking } = useAuth();
+    const { register, verifyEmail, waking } = useAuth();
+    const [pending, setPending] = useState<string | null>(null);
     const { t, lang, setLang } = useI18n();
     const router = useRouter();
     const [f, setF] = useState({ name: '', email: '', phone: '', password: '', district: '', state: 'Odisha', farmSize: '2', organization: '' });
@@ -37,7 +39,8 @@ export default function RegisterPage() {
         setError('');
         setLoading(true);
         try {
-            await register({ ...f, role, farmSize: parseFloat(f.farmSize) || 2, language: lang, ...(gps || {}) });
+            const r = await register({ ...f, role, farmSize: parseFloat(f.farmSize) || 2, language: lang, ...(gps || {}) });
+            if (r.needsVerification) { setPending(r.email); return; }
             router.push(role === 'farmer' ? '/settings?welcome=1' : '/partner');
         } catch (err) {
             setError((err as Error).message || t('auth.registerFailed'));
@@ -45,6 +48,15 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
+    if (pending) {
+        return (
+            <AuthShell title={t('otp.verifyTitle')} subtitle={t('otp.verifySub')}>
+                <CodeEntry email={pending} purpose="verify" onBack={() => setPending(null)}
+                    onSubmit={async (code) => { await verifyEmail(pending, code); router.push(role === 'farmer' ? '/settings?welcome=1' : '/partner'); }} />
+            </AuthShell>
+        );
+    }
 
     return (
         <AuthShell title={t('auth.createAccount')} subtitle={t('auth.createSub')} wide>

@@ -75,7 +75,7 @@ app.get("/health", (req, res) => {
     status: "healthy",
     db: ["disconnected", "connected", "connecting", "disconnecting"][mongoose.connection.readyState] || "unknown",
     assistant: require("./services/llm").isConfigured() ? "gemini" : "rules",
-    mqtt: require("./services/mqttBridge").status(),
+    mqtt: { broker: require("./services/mqttBroker").status(), bridge: require("./services/mqttBridge").status() },
     timestamp: new Date(),
   });
 });
@@ -91,6 +91,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+require("./services/mqttBroker").attach(server);

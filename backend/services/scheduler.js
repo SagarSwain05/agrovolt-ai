@@ -96,7 +96,7 @@ async function runAlerts() {
     const farms = await Farm.find({}).limit(2000);
     for (const farm of farms) {
         try {
-            const user = await User.findById(farm.userId).select('language notificationPrefs phone pushSubscriptions');
+            const user = await User.findById(farm.userId).select('name email emailVerified language notificationPrefs phone pushSubscriptions');
             if (!user) continue;
             state.alertsSent += await alertsForFarm(farm, user);
         } catch (e) { console.error('[scheduler] alerts', String(farm._id), e.message); }

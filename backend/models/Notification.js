@@ -10,7 +10,7 @@ const NotificationSchema = new mongoose.Schema(
     lang: String,
     data: Object,
     dedupeKey: { type: String }, // one notification per user per key (e.g. late_blight|2026-10-05)
-    channels: { inApp: { type: Boolean, default: true }, push: Boolean, sms: Boolean, whatsapp: Boolean },
+    channels: { inApp: { type: Boolean, default: true }, email: Boolean, push: Boolean, sms: Boolean, whatsapp: Boolean },
     deliveryErrors: [String],
     read: { type: Boolean, default: false }
   },

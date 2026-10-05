@@ -10,12 +10,12 @@
 #define AGROVOLT_DEVICE_KEY  "avk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 #define AGROVOLT_URL         "https://agrovolt-backend.onrender.com/api/v1/telemetry"
 
-// Optional MQTT (leave MQTT_HOST empty to use HTTPS only)
-#define MQTT_HOST        ""
-#define MQTT_PORT        8883
-#define MQTT_USER        ""
-#define MQTT_PASS        ""
-#define MQTT_TOPIC       "agrovolt/node-1/telemetry"
+// Transport: 1 = MQTT over secure WebSocket to AgroVolt's built-in broker
+//            (persistent, lower overhead), 0 = HTTPS POST only.
+// HTTPS is always used as the fallback if MQTT fails.
+#define USE_MQTT         1
+#define MQTT_URI         "wss://agrovolt-backend.onrender.com/mqtt"
+#define MQTT_TOPIC       "agrovolt/node-1/telemetry"   // any name; acks arrive on agrovolt/<first 10 chars of key>/ack
 
 // ── Timing ───────────────────────────────────────────────
 #define SAMPLE_INTERVAL_S   300   // read sensors every 5 min

@@ -62,7 +62,19 @@ const UserSchema = new mongoose.Schema(
       default: "en",
       set: (v) => normalizeLang(v)
     },
+    // undefined = account created before verification existed (treated as verified)
+    emailVerified: {
+      type: Boolean
+    },
+    emailOtp: {
+      hash: String,
+      purpose: { type: String, enum: ["verify", "reset"] },
+      expiresAt: Date,
+      attempts: { type: Number, default: 0 },
+      sentAt: Date
+    },
     notificationPrefs: {
+      email: { type: Boolean, default: true },
       push: { type: Boolean, default: true },
       sms: { type: Boolean, default: false },
       whatsapp: { type: Boolean, default: false },

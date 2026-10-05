@@ -2,6 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // AgroVolt AI — Notification delivery
 // Always: in-app (MongoDB). Optional per user preference + server config:
+//  • Email via Brevo (verified addresses; BREVO_API_KEY, EMAIL_FROM)
 //  • Web Push (free, VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)
 //  • SMS / WhatsApp via Twilio (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
 //    TWILIO_SMS_FROM, TWILIO_WHATSAPP_FROM)
@@ -53,6 +54,7 @@ async function whatsappCloud(to, title, body) {
 
 function channelsAvailable() {
     return {
+        email: require('./email').isConfigured(),
         push: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
         sms: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_SMS_FROM),
         whatsapp: !!((process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_FROM) || (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID)),
@@ -88,6 +90,12 @@ async function send(userId, { type = 'system', level = 'info', title, body, data
             catch (e) { if (e.statusCode === 404 || e.statusCode === 410) dead.push(sub.endpoint); else errors.push('push: ' + e.message); }
         }
         if (dead.length) { user.pushSubscriptions = user.pushSubscriptions.filter((s) => !dead.includes(s.endpoint)); await user.save(); }
+    }
+    if (prefs.email !== false && avail.email && user.email && user.emailVerified !== false) {
+        try {
+            await require('./email').sendAlert({ to: user.email, name: user.name, title, body, url: data?.url, level, userKey: String(user._id) });
+            sent.email = true;
+        } catch (e) { errors.push('email: ' + e.message); }
     }
     const to = e164(user.phone);
     if (to && prefs.sms && avail.sms) {

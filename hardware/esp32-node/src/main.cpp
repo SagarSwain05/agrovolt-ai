@@ -1,14 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // AgroVolt AI — open-source field node
 // ESP32 + RS485/Modbus: energy meter + 7-in-1 soil probe, SHT31 ambient,
-// DS18B20 panel temperature. Posts JSON to /api/v1/telemetry (HTTPS) or MQTT.
+// DS18B20 panel temperature. Publishes to AgroVolt's MQTT-over-WSS broker,
+// falling back to HTTPS POST /api/v1/telemetry.
 // Readings are buffered (with NTP timestamps) while offline and sent in a batch.
 // ═══════════════════════════════════════════════════════════════════════════
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <PubSubClient.h>
+#include "mqtt_client.h"
+#include "root_ca.h"
 #include <ArduinoJson.h>
 #include <ModbusMaster.h>
 #include <Wire.h>
@@ -128,7 +130,7 @@ bool wifiUp() {
 }
 
 bool postHttps(const String& body) {
-  WiFiClientSecure tls; tls.setInsecure();   // pin the Render CA in production
+  WiFiClientSecure tls; tls.setCACert(AGROVOLT_ROOT_CA);
   HTTPClient http;
   if (!http.begin(tls, AGROVOLT_URL)) return false;
   http.addHeader("Content-Type", "application/json");
@@ -140,18 +142,40 @@ bool postHttps(const String& body) {
   return code == 201 || code == 200;
 }
 
+// MQTT over WSS via ESP-IDF's esp-mqtt (bundled with the Arduino core).
+// The broker authenticates with the device key as password.
+static volatile bool mqttUp = false, mqttDone = false;
+static void mqttEvent(void*, esp_event_base_t, int32_t id, void* data) {
+  if (id == MQTT_EVENT_CONNECTED) mqttUp = true;
+  if (id == MQTT_EVENT_PUBLISHED || id == MQTT_EVENT_ERROR || id == MQTT_EVENT_DISCONNECTED) mqttDone = true;
+}
+
 bool postMqtt(const String& body) {
-  if (strlen(MQTT_HOST) == 0) return false;
-  WiFiClientSecure tls; tls.setInsecure();
-  PubSubClient mq(tls);
-  mq.setServer(MQTT_HOST, MQTT_PORT);
-  mq.setBufferSize(4096);
-  if (!mq.connect("agrovolt-node", MQTT_USER, MQTT_PASS)) return false;
-  // MQTT bridge expects the key inside the payload
-  String withKey = "{\"key\":\"" AGROVOLT_DEVICE_KEY "\"," + body.substring(1);
-  bool ok = mq.publish(MQTT_TOPIC, withKey.c_str());
-  mq.disconnect();
+#if USE_MQTT
+  esp_mqtt_client_config_t cfg = {};
+  cfg.uri = MQTT_URI;
+  cfg.username = "agrovolt-node";
+  cfg.password = AGROVOLT_DEVICE_KEY;
+  cfg.cert_pem = AGROVOLT_ROOT_CA;                 // verify the server certificate
+  cfg.network_timeout_ms = 20000;
+  mqttUp = mqttDone = false;
+  esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+  esp_mqtt_client_register_event(c, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqttEvent, nullptr);
+  esp_mqtt_client_start(c);
+  for (int i = 0; i < 300 && !mqttUp && !mqttDone; i++) delay(100);   // up to 30 s (server cold start)
+  bool ok = false;
+  if (mqttUp) {
+    int id = esp_mqtt_client_publish(c, MQTT_TOPIC, body.c_str(), body.length(), 1, 0);
+    for (int i = 0; i < 150 && !mqttDone; i++) delay(100);
+    ok = id >= 0 && mqttDone;
+  }
+  esp_mqtt_client_stop(c);
+  esp_mqtt_client_destroy(c);
+  Serial.printf("[mqtt] %s\n", ok ? "published" : "failed");
   return ok;
+#else
+  return false;
+#endif
 }
 
 void setup() {
@@ -168,7 +192,7 @@ void setup() {
   if (sampleCount % UPLOAD_EVERY_N == 0 || bufLen >= BUF_MAX - 2) {
     if (wifiUp()) {
       String body = toJson(0, bufLen);
-      bool ok = postHttps(body) || postMqtt(body);
+      bool ok = postMqtt(body) || postHttps(body);   // MQTT first, HTTPS fallback
       if (ok) bufLen = 0;        // keep buffer on failure; retry next cycle
     }
   }

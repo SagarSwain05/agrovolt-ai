@@ -6,7 +6,7 @@ import { enablePush, pushSupported } from '@/lib/pwa';
 import { useI18n } from '@/lib/i18n';
 import { BellRing, Send } from 'lucide-react';
 
-interface Cfg { vapidPublicKey: string | null; available: { push: boolean; sms: boolean; whatsapp: boolean }; prefs: { push?: boolean; sms?: boolean; whatsapp?: boolean; minLevel?: string }; phone: string | null; pushDevices: number }
+interface Cfg { vapidPublicKey: string | null; available: { email?: boolean; push: boolean; sms: boolean; whatsapp: boolean }; prefs: { email?: boolean; push?: boolean; sms?: boolean; whatsapp?: boolean; minLevel?: string }; phone: string | null; email?: string; emailVerified?: boolean; pushDevices: number }
 
 export default function AlertSettings() {
     const { t } = useI18n();
@@ -38,7 +38,16 @@ export default function AlertSettings() {
                     <button className="btn-primary" onClick={turnOnPush} style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: '0.8125rem' }}><BellRing size={14} /> {t('alerts.enablePush')}</button>
                 ) : <span style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{t('alerts.pushUnsupported')}</span>}
             </div>
-            {(['sms', 'whatsapp'] as const).map((ch) => (
+            <label style={{ ...row, cursor: 'pointer' }}>
+                <input type="checkbox" disabled={!cfg.available.email || !cfg.emailVerified} checked={cfg.prefs.email !== false} onChange={(e) => setPref({ email: e.target.checked })} />
+                <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: '0.875rem' }}>{t('alerts.email')}</b>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
+                        {!cfg.available.email ? t('alerts.notConfigured') : !cfg.emailVerified ? t('alerts.emailUnverified') : t('alerts.toEmail', { e: cfg.email || '' })}
+                    </div>
+                </div>
+            </label>
+            {(['sms', 'whatsapp'] as const).filter((ch) => cfg.available[ch]).map((ch) => (
                 <label key={ch} style={{ ...row, cursor: cfg.available[ch] ? 'pointer' : 'default' }}>
                     <input type="checkbox" disabled={!cfg.available[ch] || !cfg.phone} checked={!!cfg.prefs[ch]} onChange={(e) => setPref({ [ch]: e.target.checked })} />
                     <div style={{ flex: 1 }}>
