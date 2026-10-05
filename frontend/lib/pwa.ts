@@ -6,7 +6,10 @@ import { notificationAPI, scanAPI } from './api';
 export function registerServiceWorker() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     if (process.env.NODE_ENV !== 'production') return;
-    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => { }); });
+    const register = () => navigator.serviceWorker.register('/sw.js').catch(() => { });
+    // 'load' may already have fired by the time React effects run
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
 }
 
 export function useOnline() {
