@@ -5,10 +5,9 @@ import { assistantAPI, apiError, type Lang } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import {
-    listen, canBrowserListen, canRecordAudio, startRecording, speak, stopSpeaking,
-    loadOdiaEngine, isOdiaEngineReady, type Listener,
+    listen, canBrowserListen, canRecordAudio, startRecording, speak, stopSpeaking, type Listener,
 } from '@/lib/speech';
-import { Mic, MicOff, X, Send, Volume2, VolumeX, Sparkles, Loader2, Repeat, Square, Headphones } from 'lucide-react';
+import { Mic, MicOff, X, Send, Volume2, VolumeX, Sparkles, Loader2, Repeat, Square, Headphones, WifiOff } from 'lucide-react';
 
 interface Msg {
     role: 'user' | 'assistant';
@@ -34,7 +33,6 @@ export default function Sahayak() {
     const [handsFree, setHandsFree] = useState(false);
     const [notice, setNotice] = useState<string | null>(null);
     const [engine, setEngine] = useState<{ llm: string; serverStt: boolean } | null>(null);
-    const [odiaVoice, setOdiaVoice] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
     const listenerRef = useRef<Listener | null>(null);
     const recorderRef = useRef<{ stop: () => Promise<{ mimeType: string; data: string } | null> } | null>(null);
     const handsFreeRef = useRef(handsFree);
@@ -61,16 +59,6 @@ export default function Sahayak() {
         if (!open || engine) return;
         assistantAPI.status().then((r) => setEngine(r.data.data)).catch(() => { });
     }, [open, engine]);
-
-    // Warm the in-browser Odia voice as soon as Odia is in use
-    useEffect(() => {
-        if (!open || lang !== 'or' || isOdiaEngineReady()) {
-            if (isOdiaEngineReady()) setOdiaVoice('ready');
-            return;
-        }
-        setOdiaVoice('loading');
-        loadOdiaEngine().then(() => setOdiaVoice('ready')).catch(() => setOdiaVoice('failed'));
-    }, [open, lang]);
 
     const stopAll = useCallback(() => {
         listenerRef.current?.stop();
@@ -231,12 +219,13 @@ export default function Sahayak() {
                                 <Headphones size={13} /> {t('sahayak.handsFree')}
                             </button>
                         </div>
-                        {lang === 'or' && odiaVoice === 'loading' && (
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.6875rem', opacity: 0.85, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                <Loader2 size={12} className="animate-spin" /> {t('sahayak.odiaLoading')}
-                            </div>
-                        )}
                     </div>
+
+                    {typeof navigator !== 'undefined' && !navigator.onLine && (
+                        <div style={{ padding: '0.4rem 0.875rem', fontSize: '0.75rem', background: 'var(--color-gray-100)', color: 'var(--color-gray-700)', display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                            <WifiOff size={12} /> {t('pwa.offlineSahayak')}
+                        </div>
+                    )}
 
                     {/* Conversation */}
                     <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.625rem', background: 'var(--color-gray-50)' }}>

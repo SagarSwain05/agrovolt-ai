@@ -87,6 +87,27 @@ const FarmSchema = new mongoose.Schema(
         expectedHarvestDate: Date
       }
     ],
+    // Physical sensors: flips true on the first valid hardware reading (UI drops the "Virtual sensor" tag)
+    isHardwareVerified: {
+      type: Boolean,
+      default: false
+    },
+    hardwareVerifiedAt: Date,
+    // Learned corrections applied to the virtual sensor / energy model
+    calibration: {
+      irradianceFactor: { type: Number, default: 1 },   // NASA POWER observed ÷ Open-Meteo modelled
+      irradianceDays: { type: Number, default: 0 },
+      irradianceUpdatedAt: Date,
+      soilMoistureFactor: { type: Number, default: 1 }, // device ÷ virtual (EMA)
+      panelTempOffset: { type: Number, default: 0 },    // device − virtual °C (EMA)
+      powerFactor: { type: Number, default: 1 },        // device ÷ virtual (EMA)
+      samples: { type: Number, default: 0 }
+    },
+    epcPartnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User" // EPC/solar company with fleet access granted by the farmer
+    },
+    lastSoilingWebhook: String,
     healthScore: {
       type: Number,
       default: 75,

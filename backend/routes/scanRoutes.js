@@ -36,6 +36,9 @@ function persistCropScan(req, res, next) {
                     status: /healthy/i.test(d.disease) ? 'resolved' : 'pending',
                 });
                 body.data.scanId = doc._id;
+                if (doc.severity !== 'low' && !/healthy/i.test(doc.detectedDisease)) {
+                    require('../services/webhooks').emitForFarm(farm._id, 'disease.detected', { disease: doc.detectedDisease, crop: doc.cropName, confidence: doc.confidenceScore, severity: doc.severity, at: doc.scannedAt });
+                }
             } catch (e) {
                 console.error('[scan] persist failed:', e.message);
             }

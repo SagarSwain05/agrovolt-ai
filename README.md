@@ -24,6 +24,13 @@ Team Quantum Quirtz · AI for Bharat Hackathon
 | **Reports** | Season report: 92-day climate, risks, best crops with price outlook, solar & disease summary; printable, spoken | Open-Meteo, recommender, forecaster |
 | **Subsidies** | PM-KUSUM A/B/C + ICAR pilot eligibility evaluated against the farm profile and a short questionnaire; deadlines respected | `pmkusum_schemes.json` |
 | **IoT (Phase 2)** | Register ESP32/LoRaWAN nodes, per-device API keys, telemetry ingest, live **Server-Sent Events** stream. Device readings override the weather-driven virtual sensor field by field | `/api/iot/*` |
+| **Disease early warning** | Hourly late blight (≥10 h RH≥90 % / Hutton), early blight, rice blast, sheath blight, fungal leaf and rhizome-rot risk from observed + forecast humidity at the farm (device humidity/leaf wetness override); in-app, web push, SMS/WhatsApp alerts in EN/HI/OR | Open-Meteo hourly + sensors |
+| **Calibrated virtual sensor** | Soil moisture rescaled to the farm's soil (FAO-56 field capacity / wilting point) → plant-available water; irradiance bias from NASA POWER observed vs modelled; device-vs-virtual corrections learned while hardware reports | FAO-56, NASA POWER, devices |
+| **Telemetry v1 + hardware** | `POST /api/v1/telemetry` (snake_case), MQTT bridge, `is_hardware_verified`, meter-register → metered ledger days, open-source ESP32 + RS485/Modbus node (`hardware/esp32-node`) | Devices |
+| **Carbon MRV & PoA** | Audit export (PDF / daily CSV / hourly CSV / JSON) with baseline EF, formulas, provenance, tilt history, SHA-256; Programme-of-Activities bundle of farms | Ledger, telemetry |
+| **Partner portal (Phase 4)** | EPC/FPO accounts, farmer↔partner link codes, fleet health (PR, tilt compliance, soiling, device status), white-label `/api/partner/v1` with keys + HMAC-signed webhooks | All engines |
+| **Offline-first PWA** | Installable app, cached pages & last data, daily task checklist offline, offline scan queue (IndexedDB → syncs on reconnect), optional offline Odia voice | Service worker |
+| **Crowd mandi prices** | Farmers/FPOs report prices; used (median, labelled) while Agmarknet is down; live feed retried every 30 min | Reports + Agmarknet |
 | **District intelligence (Phase 3)** | Anonymised district/state totals for FPOs and agriculture departments, pest/disease **outbreak radar** (3+ farms with the same disease in 14 days) | Aggregated farms, ledger, scans |
 
 ### Voice in three languages
@@ -32,8 +39,8 @@ Team Quantum Quirtz · AI for Bharat Hackathon
 |---|---|---|---|
 | Speech → text | Browser (Chrome/Edge/Android, `en-IN`) | Browser (`hi-IN`) | Browser (`or-IN`) |
 | …fallback (other browsers) | Recorded audio → Gemini | Recorded audio → Gemini | Recorded audio → Gemini |
-| Text → speech | Edge neural voice `en-IN-NeerjaNeural` (server) | `hi-IN-SwaraNeural` (server) | **Meta MMS-TTS Odia running in the browser** (ONNX, 38 MB, cached; numbers spoken in Odia words) |
-| …fallback | Browser voice | Browser voice | Odia→Devanagari transliteration read by the Hindi voice |
+| Text → speech | Edge neural voice `en-IN-NeerjaNeural` (server) | `hi-IN-SwaraNeural` (server) | **Bhashini** (if `BHASHINI_*` set) → **Gemini TTS** (server, MP3, cached) |
+| …fallback | Gemini TTS, browser voice | Gemini TTS, browser voice | On-device Meta MMS-TTS Odia (offline, opt-in download) → transliterated Hindi voice |
 
 ## Architecture
 
@@ -66,8 +73,14 @@ cd frontend && npm install && NEXT_PUBLIC_API_URL=http://localhost:5001 npm run 
 | `MONGO_URI`, `JWT_SECRET` | yes | Database, auth |
 | `ROBOFLOW_API_KEY`, `ROBOFLOW_MODEL_ID` | for Scan Hub | Disease / panel detection |
 | `AGMARKNET_API_KEY` | for live mandi prices | data.gov.in |
-| `GEMINI_API_KEY` | optional (free at aistudio.google.com) | Conversational Sahayak + server speech recognition |
-| `GEMINI_MODEL` | optional | Default `gemini-2.5-flash` |
+| `GEMINI_API_KEYS` | optional (comma-separated pool) | Conversational Sahayak, server speech recognition, Odia TTS, translation. Models tried: `gemini-3.5-flash-lite` → `3.1-flash-lite` → `flash-lite-latest` → `3.8-flash`; 503/429 pairs cool down |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | for web push | Phone notifications |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` | optional | SMS / WhatsApp alerts |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` | optional | WhatsApp Cloud API alerts |
+| `BHASHINI_USER_ID`, `BHASHINI_API_KEY` | optional | Govt. Bhashini Odia/Hindi TTS (commercial-friendly) |
+| `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD` | optional | MQTT telemetry bridge |
+| `GRID_EF_KG_PER_KWH`, `GRID_EF_SOURCE` | optional | Override the MRV baseline emission factor |
+| `DISABLE_SCHEDULER` | optional | Turn off background alert/market/ledger jobs (local dev) |
 | `OPENWEATHER_API_KEY` | optional | Place names |
 | `FRONTEND_URL` | yes in prod | Certificate verification links |
 | `MONGO_DB_NAME` | optional | Override DB name (e.g. a test database) |
@@ -86,7 +99,7 @@ Fields: `ambientTempC underCanopyTempC humidityPct panelTempC irradianceWm2 lux 
 - **Energy, water and carbon numbers are modelled** from real weather at the farm's coordinates plus the farm's configuration until a meter/sensor is connected. Rows from a physical device are never overwritten.
 - **Carbon credits** are calculated, hashed and certificate-verifiable inside AgroVolt; selling for money still needs registry verification (Verra / Gold Standard / India CCTS).
 - **Agmarknet**: when data.gov.in is unreachable the market page says so and shows the dated snapshot.
-- **Odia TTS model** (Meta MMS) is licensed **CC-BY-NC 4.0** — fine for the pilot, replace (e.g. AI4Bharat Indic-TTS or a licensed API) before paid tiers.
+- **Odia voice licensing**: server voices (Bhashini, Gemini TTS) are the default path for paid tiers. The optional offline Meta MMS-TTS model is **CC-BY-NC 4.0** — keep it as a free-tier/offline convenience or replace it before charging for offline voice.
 - Render's free tier sleeps; `.github/workflows/keepalive.yml` pings it every 10 minutes.
 
 ## Roadmap status (from the pitch deck)
@@ -94,9 +107,9 @@ Fields: `ambientTempC underCanopyTempC humidityPct panelTempC irradianceWm2 lux 
 | Phase | Status |
 |---|---|
 | 1 · Odisha pilot software (dashboard, voice EN/HI/OR, scan, solar, market, carbon) | ✅ built |
-| 2 · IoT bridge (ESP32/LoRaWAN ingest, live stream, device keys) | ✅ API + UI built; needs hardware |
+| 2 · IoT bridge (ESP32/LoRaWAN ingest, MQTT, live stream, device keys, calibration, open-source firmware) | ✅ built; firmware compiles, needs field hardware |
 | 3 · State/district dashboards, outbreak radar, verifiable carbon | ✅ built |
-| 4 · Solar OEM bundling | Business partnership — API ready to embed |
+| 4 · Solar EPC/OEM bundling | ✅ partner portal, white-label API, webhooks — partnerships to sign |
 | 5 · Export to other regions | Languages/schemes are data files; add per region |
 
 ## 📧 Contact

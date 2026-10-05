@@ -24,6 +24,7 @@ app.use(cors({
     callback(null, true); // Allow all for now — tighten later
   },
   credentials: true,
+  exposedHeaders: ['X-TTS-Provider', 'X-TTS-Voice'],
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -40,6 +41,10 @@ app.use("/api/weather", require("./routes/weatherRoutes"));
 app.use("/api/scan", require("./routes/scanRoutes"));
 app.use("/api/farm", require("./routes/farmRoutes"));
 app.use("/api/iot", require("./routes/iotRoutes"));
+app.use("/api/v1", require("./routes/v1Routes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/epc", require("./routes/partnerRoutes").epc);
+app.use("/api/partner/v1", require("./routes/partnerRoutes").api);
 app.use("/api/assistant", require("./routes/assistantRoutes"));
 app.use("/api/district", require("./routes/districtRoutes"));
 app.use("/api/schemes", require("./routes/schemeRoutes"));
@@ -48,7 +53,11 @@ app.use("/api/reports", require("./routes/reportRoutes"));
 // MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URI, process.env.MONGO_DB_NAME ? { dbName: process.env.MONGO_DB_NAME } : {})
-  .then(() => console.log("✅ MongoDB Connected"))
+  .then(() => {
+    console.log("✅ MongoDB Connected");
+    require("./services/mqttBridge").start();
+    require("./services/scheduler").start();
+  })
   .catch((err) => console.log("❌ MongoDB Error:", err));
 
 // Root endpoint
@@ -65,7 +74,8 @@ app.get("/health", (req, res) => {
   res.json({
     status: "healthy",
     db: ["disconnected", "connected", "connecting", "disconnecting"][mongoose.connection.readyState] || "unknown",
-    assistant: process.env.GEMINI_API_KEY ? "gemini" : "rules",
+    assistant: require("./services/llm").isConfigured() ? "gemini" : "rules",
+    mqtt: require("./services/mqttBridge").status(),
     timestamp: new Date(),
   });
 });

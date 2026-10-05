@@ -19,7 +19,9 @@ import {
     Landmark,
     Settings,
     Radar,
+    Building2,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 
 /* Primary tabs always visible (5 items) */
 const primaryItems = [
@@ -44,6 +46,8 @@ export default function BottomNav() {
     const pathname = usePathname();
     const [showMore, setShowMore] = useState(false);
     const { t } = useI18n();
+    const { user } = useAuth();
+    const drawerItems = user && ['epc', 'fpo', 'admin'].includes(user.role) ? [{ href: '/partner', icon: Building2, label: 'nav.partner' }, ...moreItems] : moreItems;
     const isMoreActive = moreItems.some(i => pathname === i.href);
 
     return (
@@ -67,7 +71,7 @@ export default function BottomNav() {
                             padding: '0.75rem 0.5rem',
                         }}
                     >
-                        {moreItems.map((item) => {
+                        {drawerItems.map((item) => {
                             const isActive = pathname === item.href;
                             return (
                                 <Link

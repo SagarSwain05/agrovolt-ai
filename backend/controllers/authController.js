@@ -32,7 +32,8 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, farmName, farmSize, location, language, soilType } = req.body;
+    const { name, email, password, phone, farmName, farmSize, location, language, soilType, organization } = req.body;
+    const role = ["farmer", "epc", "fpo"].includes(req.body.role) ? req.body.role : "farmer";
 
     // Validation
     if (!name || !email || !password) {
@@ -61,7 +62,9 @@ exports.register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      language
+      language,
+      role,
+      ...(role !== "farmer" ? { organization, partnerCode: `${role.toUpperCase()}-${require("crypto").randomBytes(3).toString("hex").toUpperCase()}` } : {})
     });
 
     // Every account gets a farm (defaults are editable in Settings)
@@ -102,6 +105,8 @@ exports.register = async (req, res) => {
         role: user.role,
         language: user.language,
         farmId: user.farmId,
+        partnerCode: user.partnerCode,
+        organization: user.organization,
         token: generateToken(user._id)
       }
     });

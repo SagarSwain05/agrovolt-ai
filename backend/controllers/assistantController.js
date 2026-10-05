@@ -123,13 +123,13 @@ exports.speak = async (req, res) => {
   try {
     if (!allow("tts:" + req.user._id, 40)) return res.status(429).end();
     const lang = i18n.normLang(req.body?.lang);
-    const out = await tts.synthesize(req.body?.text, lang);
+    const out = await tts.synthesize(req.body?.text, lang, { prefer: req.body?.provider });
     res.set({
-      "Content-Type": "audio/mpeg",
+      "Content-Type": out.mimeType,
       "Content-Length": out.audio.length,
       "Cache-Control": "private, max-age=86400",
       "X-TTS-Voice": out.voice,
-      "X-TTS-Transliterated": String(out.transliterated),
+      "X-TTS-Provider": out.provider,
     });
     res.send(out.audio);
   } catch (e) {
@@ -160,8 +160,27 @@ exports.status = (req, res) => {
     data: {
       llm: llm.isConfigured() ? "gemini" : "rules",
       languages: ["en", "hi", "or"],
-      serverTts: { en: "en-IN-NeerjaNeural", hi: "hi-IN-SwaraNeural", or: "hi-IN-SwaraNeural (transliterated fallback)" },
+      serverTts: { en: tts.chainFor("en"), hi: tts.chainFor("hi"), or: tts.chainFor("or") },
+      geminiKeys: llm.keys().length,
       serverStt: llm.isConfigured(),
     },
   });
+};
+
+// @route POST /api/assistant/translate  { items: {key: string|string[]}, lang }
+// Translates dynamic content (e.g. a disease diagnosis) — cached server-side.
+exports.translate = async (req, res) => {
+  try {
+    const lang = i18n.normLang(req.body?.lang);
+    const items = req.body?.items;
+    if (!items || typeof items !== "object") return res.status(400).json({ success: false, message: "items required" });
+    if (lang === "en") return res.json({ success: true, data: items, translated: false });
+    if (JSON.stringify(items).length > 6000) return res.status(413).json({ success: false, message: "Too much text" });
+    if (!allow("tr:" + req.user._id, 30)) return res.status(429).json({ success: false, message: "Too many requests" });
+    const out = await llm.translate(items, lang);
+    res.json({ success: true, data: out || items, translated: !!out });
+  } catch (e) {
+    console.error("[translate]", e.message);
+    res.json({ success: true, data: req.body?.items, translated: false });
+  }
 };

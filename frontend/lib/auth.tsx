@@ -17,6 +17,8 @@ export interface User {
   role: string;
   language: Lang;
   farmId?: string;
+  partnerCode?: string;
+  organization?: string;
 }
 
 interface RegisterData {
@@ -30,6 +32,8 @@ interface RegisterData {
   language?: Lang;
   latitude?: number;
   longitude?: number;
+  role?: 'farmer' | 'epc' | 'fpo';
+  organization?: string;
 }
 
 interface AuthContextType {
@@ -56,6 +60,8 @@ function normalizeUser(d: Record<string, unknown>): User {
     phone: d.phone ? String(d.phone) : undefined,
     role: String(d.role || 'farmer'),
     language: (lang.startsWith('hi') ? 'hi' : lang.startsWith('or') || lang.startsWith('od') ? 'or' : 'en') as Lang,
+    partnerCode: d.partnerCode ? String(d.partnerCode) : undefined,
+    organization: d.organization ? String(d.organization) : undefined,
     farmId: d.farmId && typeof d.farmId === 'object' ? String((d.farmId as { _id: string })._id) : d.farmId ? String(d.farmId) : undefined,
   };
 }
@@ -108,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedToken) {
       authAPI.getMe()
         .then((res) => {
+          // Ignore if the session changed (logout / another login) while this was in flight
+          let current: string | null = null;
+          try { current = localStorage.getItem(TOKEN_KEY); } catch { /* ignore */ }
+          if (current !== savedToken) return;
           const u = normalizeUser(res.data.data);
           setUser(u);
           persist(savedToken, u);
@@ -140,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: data.password,
         phone: data.phone,
         language: data.language || 'en',
+        role: data.role || 'farmer',
+        organization: data.organization,
         farmName: `${data.name.trim()}'s Farm`,
         farmSize: data.farmSize || 2,
         district: data.district,
@@ -164,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
     persist(null, null);
+    try { navigator.serviceWorker?.controller?.postMessage({ type: 'CLEAR_DATA' }); } catch { /* no SW */ }
     if (typeof window !== 'undefined') window.location.href = '/login';
   };
 

@@ -63,7 +63,8 @@ exports.getMarketPrices = async (req, res) => {
     const crop = cropName || "Tomato";
 
     const live = await liveMandiPrices(crop, farm);
-    const prices = live ? live.rows : priceForecaster.getMandiPrices(crop, district);
+    const crowd = live ? [] : await crowdPrices(crop, farm);
+    const prices = live ? live.rows : [...crowd, ...priceForecaster.getMandiPrices(crop, district)].sort((a, b) => b.netProfit - a.netProfit);
 
     const avgPrice = prices.reduce((sum, p) => sum + p.price, 0) / prices.length;
     const bestNetProfit = prices[0]?.netProfit || 0;
@@ -74,8 +75,9 @@ exports.getMarketPrices = async (req, res) => {
       data: {
         crop,
         prices,
-        source: live ? "live" : "snapshot",
-        sourceLabel: live ? `Agmarknet live · ${live.scope}` : "Agmarknet snapshot (offline fallback)",
+        source: live ? "live" : crowd.length ? "crowd" : "snapshot",
+        sourceLabel: live ? `Agmarknet live · ${live.scope}` : crowd.length ? "Farmer/FPO reports + Agmarknet snapshot" : "Agmarknet snapshot (offline fallback)",
+        feedStatus: agmarknet.status(),
         fetchedAt: live?.fetchedAt || null,
         analysis: {
           avgPrice: Math.round(avgPrice),
@@ -91,6 +93,66 @@ exports.getMarketPrices = async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
   }
+};
+
+/** Median of farmer/FPO reports per mandi over the last 3 days. */
+async function crowdPrices(crop, farm) {
+  const PriceReport = require("../models/PriceReport");
+  const rows = await PriceReport.find({ crop, state: farm.location?.state || "Odisha", date: { $gte: new Date(Date.now() - 3 * 86400e3) } }).lean();
+  const by = {};
+  for (const r of rows) (by[r.mandi] ||= []).push(r);
+  const rate = priceForecaster.transportCostPerKmQ;
+  const out = [];
+  for (const [mandi, list] of Object.entries(by)) {
+    const p = list.map((x) => x.price).sort((a, b) => a - b);
+    const price = p[Math.floor(p.length / 2)];
+    const loc = await geocodeMandi(mandi, list[0].district || "", list[0].state || "", true).catch(() => null);
+    const km = loc && farm.location?.latitude ? Math.round(haversineKm(farm.location.latitude, farm.location.longitude, loc.lat, loc.lon) * 1.25) : null;
+    const transportCost = km != null ? Math.round(km * rate) : null;
+    out.push({
+      mandi, district: list[0].district, type: "reported", distance_km: km, distance: km != null ? `${km} km` : "—", price,
+      transportCost, netProfit: transportCost != null ? price - transportCost : price, trend: "stable", demand: "medium",
+      lastUpdated: list.map((x) => x.date).sort().pop(), source: "crowd", reports: list.length,
+      verified: list.some((x) => x.role === "fpo" || x.role === "admin"),
+    });
+  }
+  return out;
+}
+
+// @desc    Report today's price at a mandi (farmer / FPO)
+// @route   POST /api/market/report
+exports.reportPrice = async (req, res) => {
+  try {
+    const PriceReport = require("../models/PriceReport");
+    const { crop, mandi, price, soldQty } = req.body || {};
+    if (!crop || !mandi || !(Number(price) > 0)) return res.status(400).json({ success: false, message: "crop, mandi and price are required" });
+    const farm = await Farm.findOne({ userId: req.user._id }).lean();
+    const recent = await PriceReport.countDocuments({ userId: req.user._id, date: { $gte: new Date(Date.now() - 86400e3) } });
+    if (recent >= 20) return res.status(429).json({ success: false, message: "Daily report limit reached" });
+    const doc = await PriceReport.create({
+      userId: req.user._id, role: req.user.role, crop, mandi: String(mandi).slice(0, 80), price: Number(price), soldQty: Number(soldQty) || undefined,
+      district: req.body.district || farm?.location?.district, state: req.body.state || farm?.location?.state || "Odisha",
+    });
+    res.status(201).json({ success: true, data: doc });
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// @desc    Market data-source health
+// @route   GET /api/market/status
+exports.getStatus = async (req, res) => {
+  const PriceReport = require("../models/PriceReport");
+  res.json({
+    success: true,
+    data: {
+      agmarknet: agmarknet.status(),
+      scheduler: require("../services/scheduler").state().market,
+      crowdReports7d: await PriceReport.countDocuments({ date: { $gte: new Date(Date.now() - 7 * 86400e3) } }),
+      snapshotAsOf: priceForecaster.getDailyHistory("Tomato").slice(-1)[0]?.date || null,
+    },
+  });
 };
 
 // @desc    Get price trends (historical + forecast)

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import StatCard from '@/components/StatCard';
@@ -13,7 +13,17 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import {
     Zap, Droplets, Leaf, IndianRupee, Thermometer, Sun, CloudRain, Cloud, CloudSun, Moon, Gauge, Sprout,
     AlertTriangle, TrendingUp, Wrench, ScanLine, Settings2, Volume2, Square, Radio, Cpu, ArrowRight, Loader2,
+    CheckCircle2, Circle, ShieldCheck, WifiOff,
 } from 'lucide-react';
+import { useOnline } from '@/lib/pwa';
+
+const DONE_KEY = 'agrovolt_tasks_done';
+function loadDone(): Set<string> {
+    try {
+        const v = JSON.parse(localStorage.getItem(DONE_KEY) || 'null');
+        return v?.day === new Date().toDateString() ? new Set(v.ids) : new Set();
+    } catch { return new Set(); }
+}
 
 interface Action { code: string; type: string; priority: number; text: string }
 interface Forecast { date: string; day: string; tempMax: number; tempMin: number; rain: number; rainChance: number | null; description: string; radiationKwhM2: number; icon: string }
@@ -32,6 +42,7 @@ interface Dash {
     scans: { crop: string; disease: string; date: string; severity: string }[];
     actions: Action[];
     income: { solar30: number; carbonValue: number; todaySolar: number; total30: number };
+    hardware?: { verified: boolean; since: string | null; calibration: { irradianceFactor?: number; irradianceDays?: number; samples?: number } | null };
 }
 
 const ACTION_STYLE: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
@@ -59,6 +70,15 @@ export default function DashboardPage() {
     const { data, error, loading, updatedAt } = useApi<Dash>(() => dashboardAPI.get(lang), [lang], 120000);
     const { reading: live, connected } = useTelemetry(data?.sensors);
     const [speaking, setSpeaking] = useState(false);
+    const [done, setDone] = useState<Set<string>>(new Set());
+    const online = useOnline();
+    useEffect(() => { setDone(loadDone()); }, []);
+    const toggleDone = (id: string) => setDone((prev) => {
+        const n = new Set(prev);
+        if (n.has(id)) n.delete(id); else n.add(id);
+        try { localStorage.setItem(DONE_KEY, JSON.stringify({ day: new Date().toDateString(), ids: Array.from(n) })); } catch { /* storage unavailable */ }
+        return n;
+    });
 
     const sensors = live || data?.sensors || null;
     const solar = data?.solar;
@@ -118,12 +138,21 @@ export default function DashboardPage() {
                                         {speaking ? <><Square size={13} /> {t('common.stop')}</> : <><Volume2 size={14} /> {t('dash.listen')}</>}
                                     </button>
                                 </div>
+                                {!online && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-600)', display: 'flex', gap: '0.35rem', alignItems: 'center' }}><WifiOff size={12} /> {t('pwa.savedData')}</div>}
                                 {data.actions.map((a, i) => {
                                     const st = ACTION_STYLE[a.type] || ACTION_STYLE.info;
+                                    const id = `${a.code}:${a.text.slice(0, 40)}`;
+                                    const isDone = done.has(id);
                                     return (
-                                        <div key={a.code + i} style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem', borderRadius: 'var(--radius-lg)', background: st.bg, alignItems: 'flex-start' }}>
+                                        <div key={a.code + i} style={{ display: 'flex', gap: '0.625rem', padding: '0.75rem', borderRadius: 'var(--radius-lg)', background: st.bg, alignItems: 'flex-start', opacity: isDone ? 0.55 : 1 }}>
+                                            <button onClick={() => toggleDone(id)} aria-label={t('dash.markDone')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: isDone ? 'var(--color-green-600)' : st.color, flexShrink: 0, marginTop: 1 }}>
+                                                {isDone ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                                            </button>
                                             <div style={{ color: st.color, marginTop: '2px', flexShrink: 0 }}>{st.icon}</div>
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--color-gray-800)', lineHeight: 1.55, flex: 1 }}>{a.text}</div>
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--color-gray-800)', lineHeight: 1.55, flex: 1, textDecoration: isDone ? 'line-through' : 'none' }}>{a.text}</div>
+                                            <button onClick={() => speak(a.text, lang)} aria-label={t('dash.listen')} style={{ border: 'none', background: 'rgba(255,255,255,0.7)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: st.color }}>
+                                                <Volume2 size={14} />
+                                            </button>
                                             {a.type === 'setup' && <Link href="/settings" style={{ color: st.color, flexShrink: 0 }}><ArrowRight size={16} /></Link>}
                                         </div>
                                     );
@@ -137,9 +166,11 @@ export default function DashboardPage() {
                             <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <h2 style={h2}>{t('dash.liveField')}</h2>
-                                    <span className={`badge ${sensors?.source === 'device' ? 'badge-green' : 'badge-blue'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span className={`badge ${sensors?.source === 'device' ? 'badge-green' : data.hardware?.verified ? 'badge-solar' : 'badge-blue'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? 'var(--color-green-500)' : 'var(--color-gray-400)', animation: connected ? 'pulse 2s infinite' : 'none' }} />
-                                        {sensors?.source === 'device' ? <><Cpu size={11} /> {t('dash.sensorDevice')}</> : <><Radio size={11} /> {t('dash.sensorVirtual')}</>}
+                                        {sensors?.source === 'device' ? <><ShieldCheck size={11} /> {t('dash.sensorVerified')}</>
+                                            : data.hardware?.verified ? <><Cpu size={11} /> {t('dash.sensorOffline')}</>
+                                                : <><Radio size={11} /> {t('dash.sensorVirtual')}</>}
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
@@ -147,7 +178,7 @@ export default function DashboardPage() {
                                         hint={sensors?.panelTempUncooledC != null ? t('dash.withoutCrops', { t: num(sensors.panelTempUncooledC, 1) }) : undefined} />
                                     <Metric icon={<Leaf size={14} />} label={t('dash.bioCooling')} value={sensors?.bioCoolingDeltaC != null ? `−${num(sensors.bioCoolingDeltaC, 1)}°C` : '—'} hint={t('dash.bioCoolingHint')} />
                                     <Metric icon={<Droplets size={14} />} label={t('dash.soilMoisture')} value={sensors?.soilMoisturePct != null ? `${num(sensors.soilMoisturePct, 1)}%` : '—'}
-                                        hint={sensors?.soilTempC != null ? t('dash.soilTemp', { t: num(sensors.soilTempC, 1) }) : undefined} />
+                                        hint={(sensors as { soilAvailableWaterPct?: number })?.soilAvailableWaterPct != null ? t('dash.paw', { p: (sensors as { soilAvailableWaterPct?: number }).soilAvailableWaterPct }) : sensors?.soilTempC != null ? t('dash.soilTemp', { t: num(sensors.soilTempC, 1) }) : undefined} />
                                     <Metric icon={<Sun size={14} />} label={t('dash.sunlight')} value={sensors?.irradianceWm2 != null ? `${num(sensors.irradianceWm2)} W/m²` : '—'}
                                         hint={sensors?.parCrop != null ? t('dash.parCrop', { v: num(sensors.parCrop) }) : undefined} />
                                     <Metric icon={<Thermometer size={14} />} label={t('dash.underCanopy')} value={sensors?.underCanopyTempC != null ? `${num(sensors.underCanopyTempC, 1)}°C` : '—'}
@@ -158,7 +189,9 @@ export default function DashboardPage() {
                                 </div>
                                 {sensors?.source !== 'device' && (
                                     <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)', lineHeight: 1.5 }}>
-                                        {t('dash.virtualNote')} <Link href="/settings#devices" style={{ color: 'var(--color-green-700)' }}>{t('dash.connectDevice')}</Link>
+                                        {data.hardware?.verified ? t('dash.offlineNote') : t('dash.virtualNote')}{' '}
+                                        {data.hardware?.calibration?.irradianceDays ? t('dash.calibrated', { f: data.hardware.calibration.irradianceFactor, d: data.hardware.calibration.irradianceDays }) : ''}{' '}
+                                        <Link href="/settings#devices" style={{ color: 'var(--color-green-700)' }}>{data.hardware?.verified ? t('dash.manageDevices') : t('dash.connectDevice')}</Link>
                                     </div>
                                 )}
                             </div>

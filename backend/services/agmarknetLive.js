@@ -50,16 +50,26 @@ async function fetchCommodity(commodity, state) {
  * Live records for a crop. Tries the farm's state first, then all-India.
  * Returns { records, scope, commodity, fetchedAt } or throws.
  */
-async function getLive(crop, state) {
+const status = { lastSuccess: null, lastError: null, lastAttempt: null };
+
+async function getLive(crop, state, { force = false } = {}) {
     const k = `${crop}|${state || ''}`;
     const hit = cache.get(k);
-    if (hit && Date.now() - hit.t < TTL_MS) return hit.v;
+    if (!force && hit && Date.now() - hit.t < TTL_MS) return hit.v;
+    // While the upstream is known to be down, don't hammer it on every page view
+    if (!force && status.lastError && Date.now() - new Date(status.lastError.at).getTime() < 10 * 60e3 && !(status.lastSuccess > status.lastError.at)) {
+        throw new Error('data.gov.in unavailable (cached failure)');
+    }
+    status.lastAttempt = new Date();
 
     const names = COMMODITY[crop] || [crop];
     let result = null;
     for (const scope of [state, null]) {
         for (const commodity of names) {
-            const records = await fetchCommodity(commodity, scope);
+            let records;
+            try { records = await fetchCommodity(commodity, scope); }
+            catch (e) { status.lastError = { at: new Date(), message: `${e.code || e.response?.status || ''} ${e.message}`.trim() }; throw e; }
+            status.lastSuccess = new Date();
             if (records.length) {
                 result = { records, scope: scope || 'India', commodity, fetchedAt: new Date().toISOString() };
                 break;
@@ -109,4 +119,4 @@ async function getHistory(crop, state, days = 90) {
     });
 }
 
-module.exports = { getLive, getHistory, COMMODITY };
+module.exports = { getLive, getHistory, COMMODITY, status: () => status };

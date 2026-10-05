@@ -10,6 +10,7 @@ const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const NUMERIC_FIELDS = [
   "ambientTempC", "underCanopyTempC", "humidityPct", "panelTempC", "irradianceWm2", "lux", "parCrop",
   "soilMoisturePct", "soilTempC", "soilN", "soilP", "soilK", "soilPH", "powerW", "energyTodayKwh", "panelTiltDeg",
+  "meterKwhTotal", "voltageV", "currentA", "leafWetnessPct", "rainMm",
 ];
 
 async function farmFor(user) {
@@ -26,10 +27,11 @@ async function latestReading(farm) {
     Telemetry.findOne({ farmId: farm._id, source: "device", ts: { $gte: new Date(Date.now() - DEVICE_FRESH_MS) } }).sort({ ts: -1 }).lean(),
     virtualNode.read(farm).catch(() => null),
   ]);
-  if (!dev) return v ? { ...v, measured: [] } : null;
+  if (!dev) return v ? { ...v, measured: [], isHardwareVerified: !!farm.isHardwareVerified } : null;
   const measured = NUMERIC_FIELDS.filter((f) => dev[f] != null);
-  const merged = { ...(v || {}), source: "device", ts: dev.ts, deviceId: dev.deviceId, measured };
+  const merged = { ...(v || {}), source: "device", ts: dev.ts, deviceId: dev.deviceId, measured, isHardwareVerified: true };
   for (const f of measured) merged[f] = dev[f];
+  if (measured.includes("soilMoisturePct")) merged.soilAvailableWaterPct = require("../services/calibration").pawFromVwc(dev.soilMoisturePct, farm.soilType);
   return merged;
 }
 exports.latestReading = latestReading;
@@ -70,24 +72,14 @@ exports.deleteDevice = async (req, res) => {
   res.json({ success: true });
 };
 
-// @route POST /api/iot/telemetry   header: X-Device-Key   body: reading or { readings: [...] }
+// @route POST /api/iot/telemetry  and  POST /api/v1/telemetry
+// Auth: X-Device-Key header (or Authorization: Device <key>)
 exports.ingest = async (req, res) => {
   try {
-    const key = req.headers["x-device-key"];
-    if (!key) return res.status(401).json({ success: false, message: "Missing X-Device-Key" });
-    const device = await Device.findOne({ keyHash: sha256(String(key)), isActive: true });
-    if (!device) return res.status(401).json({ success: false, message: "Unknown device key" });
-
-    const batch = Array.isArray(req.body.readings) ? req.body.readings.slice(0, 500) : [req.body];
-    const docs = batch.map((r) => {
-      const doc = { farmId: device.farmId, deviceId: device._id, source: "device", ts: r.ts ? new Date(r.ts) : new Date() };
-      for (const f of NUMERIC_FIELDS) if (r[f] != null && Number.isFinite(Number(r[f]))) doc[f] = Number(r[f]);
-      return doc;
-    });
-    await Telemetry.insertMany(docs);
-    device.lastSeenAt = new Date();
-    await device.save();
-    res.status(201).json({ success: true, accepted: docs.length });
+    const auth = req.headers.authorization || "";
+    const key = req.headers["x-device-key"] || (auth.startsWith("Device ") ? auth.slice(7) : null);
+    const out = await require("../services/telemetryIngest").ingest({ key, body: req.body });
+    res.status(out.status).json(out.body);
   } catch (e) {
     console.error(e);
     res.status(500).json({ success: false, message: "Ingest failed" });
@@ -146,5 +138,8 @@ exports.stream = async (req, res) => {
   };
   await push();
   const timer = setInterval(push, 15000);
-  req.on("close", () => clearInterval(timer));
+  const bus = require("../services/events");
+  const onTelemetry = (ev) => { if (ev.farmId === String(farm._id)) push(); };
+  bus.on("telemetry", onTelemetry);
+  req.on("close", () => { clearInterval(timer); bus.off("telemetry", onTelemetry); });
 };

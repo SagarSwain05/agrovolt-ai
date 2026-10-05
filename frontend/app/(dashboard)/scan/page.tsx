@@ -4,7 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { useI18n, cropKey } from '@/lib/i18n';
 import { useFarm } from '@/lib/farm';
-import { scanAPI, districtAPI, weatherAPI, cropAPI, apiError } from '@/lib/api';
+import { scanAPI, districtAPI, weatherAPI, cropAPI, translateAPI, apiError } from '@/lib/api';
+import { scanQueue } from '@/lib/pwa';
 import { speak } from '@/lib/speech';
 import {
     ScanLine, Camera, Upload, Zap, AlertTriangle, CheckCircle2,
@@ -278,11 +279,27 @@ function ScanPage() {
             return;
         }
 
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            await scanQueue.add({ mode, image, createdAt: Date.now() }).catch(() => { });
+            setScanError(t('scan.queued'));
+            setScanning(false);
+            return;
+        }
         try {
             const res = mode === 'crop' ? await scanAPI.crop(image) : await scanAPI.panel(image);
             if (res.data.success) {
-                setResult(res.data.data);
+                const d = res.data.data;
+                setResult(d);
                 if (mode === 'crop') loadHistory();
+                // Show diagnosis & treatment in the farmer's language (doses are preserved)
+                if (lang !== 'en') {
+                    const items = mode === 'crop'
+                        ? { disease: d.disease, symptoms: d.symptoms, treatment: d.treatment, organic: d.organic, spread: d.spread }
+                        : { defect: d.defect, symptoms: d.symptoms, action: d.action };
+                    translateAPI.items(items, lang).then((tr) => {
+                        if (tr.data.translated) setResult((cur: Record<string, unknown> | null) => (cur ? { ...cur, ...tr.data.data, original: items } : cur));
+                    }).catch(() => { });
+                }
             } else {
                 setScanError(res.data.message || t('scan.err.process'));
             }
@@ -373,7 +390,7 @@ function ScanPage() {
                             <div style={{ marginBottom: '0.5rem', padding: '0.625rem', borderRadius: 'var(--radius-lg)', background: '#FEE2E2', border: '1px solid #FECACA', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                                 <AlertTriangle size={16} color="#DC2626" style={{ flexShrink: 0, marginTop: 2 }} />
                                 <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626', marginBottom: '0.125rem' }}>{t('scan.notRecognized')}</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626', marginBottom: '0.125rem' }}>{scanError === t('scan.queued') ? t('scan.queuedTitle') : t('scan.notRecognized')}</div>
                                     <div style={{ fontSize: '0.6875rem', color: '#991B1B' }}>{scanError}</div>
                                 </div>
                             </div>
@@ -427,7 +444,8 @@ function ScanPage() {
                                         <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: sevColor(result.severity) }}>{result.confidence}%</div>
                                     </div>
                                     <div>
-                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>{result.disease === 'Healthy' ? `✅ ${t('scan.healthy')}` : result.disease}</div>
+                                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>{result.disease === 'Healthy' || result.original?.disease === 'Healthy' ? `✅ ${t('scan.healthy')}` : result.disease}</div>
+                                        {result.original?.disease && result.original.disease !== 'Healthy' && <div style={{ fontSize: '0.625rem', color: 'var(--color-gray-400)' }}>{result.original.disease}</div>}
                                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)', fontStyle: 'italic' }}>{result.pathogen}</div>
                                         <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
                                             <span className={`badge ${result.severity === 'Severe' ? 'badge-red' : result.severity === 'Moderate' ? 'badge-solar' : 'badge-green'}`} style={{ fontSize: '0.375rem' }}>{result.severity}</span>

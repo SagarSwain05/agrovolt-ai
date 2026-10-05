@@ -1,0 +1,17 @@
+{
+  "source": "FAO Irrigation & Drainage Paper 56, Table 19 (typical soil water characteristics, mid-range values). Replace per district with OUAT / Soil Health Card data when available.",
+  "unit": "volumetric water content, %",
+  "soils": {
+    "sandy":    { "texture": "sandy loam",      "fieldCapacity": 23, "wiltingPoint": 11 },
+    "loamy":    { "texture": "loam",            "fieldCapacity": 25, "wiltingPoint": 12 },
+    "silt":     { "texture": "silt loam",       "fieldCapacity": 29, "wiltingPoint": 15 },
+    "alluvial": { "texture": "silt loam",       "fieldCapacity": 29, "wiltingPoint": 15 },
+    "clay":     { "texture": "clay",            "fieldCapacity": 36, "wiltingPoint": 22 },
+    "black":    { "texture": "clay (vertisol)", "fieldCapacity": 38, "wiltingPoint": 23 },
+    "red":      { "texture": "sandy loam",      "fieldCapacity": 22, "wiltingPoint": 10 },
+    "laterite": { "texture": "sandy clay loam", "fieldCapacity": 26, "wiltingPoint": 15 },
+    "peat":     { "texture": "organic",         "fieldCapacity": 45, "wiltingPoint": 25 },
+    "chalk":    { "texture": "loam",            "fieldCapacity": 25, "wiltingPoint": 12 }
+  },
+  "openMeteoReference": { "fieldCapacity": 30, "wiltingPoint": 13, "note": "Open-Meteo soil moisture is from a generic land-surface model; values are rescaled into the farm's soil range." }
+}

@@ -31,8 +31,17 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["farmer", "epc", "admin"],
+      enum: ["farmer", "epc", "fpo", "admin"],
       default: "farmer"
+    },
+    partnerCode: {
+      type: String, // for EPC / FPO accounts — farmers link their farm with this code
+      unique: true,
+      sparse: true
+    },
+    organization: {
+      type: String,
+      trim: true
     },
     farmId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -53,6 +62,19 @@ const UserSchema = new mongoose.Schema(
       default: "en",
       set: (v) => normalizeLang(v)
     },
+    notificationPrefs: {
+      push: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false },
+      whatsapp: { type: Boolean, default: false },
+      minLevel: { type: String, enum: ["info", "medium", "high"], default: "medium" }
+    },
+    pushSubscriptions: [
+      {
+        endpoint: String,
+        keys: { p256dh: String, auth: String },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
     isActive: {
       type: Boolean,
       default: true

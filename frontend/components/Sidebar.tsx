@@ -17,6 +17,7 @@ import {
     Landmark,
     Settings,
     Radar,
+    Building2,
     ChevronLeft,
     ChevronRight,
     LogOut,
@@ -99,7 +100,7 @@ export default function Sidebar() {
             {/* Navigation */}
             <nav style={{ flex: 1, padding: '0.75rem 0.5rem', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '2px' }}>
-                    {navItems.map((item) => {
+                    {[...navItems.slice(0, -1), ...(user && ['epc', 'fpo', 'admin'].includes(user.role) ? [{ href: '/partner', icon: Building2, label: 'nav.partner' }] : []), navItems[navItems.length - 1]].map((item) => {
                         const isActive = pathname === item.href;
                         const IconComp = item.icon;
                         return (

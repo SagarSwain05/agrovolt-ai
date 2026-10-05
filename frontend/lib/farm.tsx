@@ -21,6 +21,9 @@ export interface Farm {
     cropUnderPanels: string;
     tariffPerKwh: number;
     annualRainfall: number;
+    isHardwareVerified?: boolean;
+    hardwareVerifiedAt?: string;
+    calibration?: { irradianceFactor?: number; irradianceDays?: number; soilMoistureFactor?: number; panelTempOffset?: number; powerFactor?: number; samples?: number };
 }
 
 interface FarmCtx {

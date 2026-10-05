@@ -7,7 +7,10 @@ import { useAuth } from '@/lib/auth';
 import { useFarm, type Farm } from '@/lib/farm';
 import { useI18n, cropKey } from '@/lib/i18n';
 import { farmAPI, iotAPI, apiError, API_BASE } from '@/lib/api';
-import { User, MapPin, Sun, Cpu, Crosshair, Search, Copy, Trash2, Plus, CheckCircle2, Loader2 } from 'lucide-react';
+import { User, MapPin, Sun, Cpu, Crosshair, Search, Copy, Trash2, Plus, CheckCircle2, Loader2, BellRing, Handshake, WifiOff, ShieldCheck } from 'lucide-react';
+import AlertSettings from '@/components/settings/AlertSettings';
+import PartnerLink from '@/components/settings/PartnerLink';
+import OfflineVoice from '@/components/settings/OfflineVoice';
 
 const SOILS = ['loamy', 'clay', 'sandy', 'alluvial', 'red', 'black', 'laterite', 'silt'];
 const UNDERSTORY = ['general', 'turmeric', 'ginger', 'spinach', 'lettuce', 'tomato', 'chili', 'potato', 'onion', 'groundnut', 'millet', 'rice'];
@@ -166,9 +169,21 @@ export default function SettingsPage() {
                     })} />
                 </Section>
 
+                <div id="alerts" />
+                <Section icon={<BellRing size={18} />} title={t('alerts.title')}><AlertSettings /></Section>
+
+                <Section icon={<Handshake size={18} />} title={t('partner.title')}><PartnerLink /></Section>
+
+                <Section icon={<WifiOff size={18} />} title={t('offline.title')}><OfflineVoice /></Section>
+
                 <div id="devices" />
                 <Section icon={<Cpu size={18} />} title={t('settings.devices')}>
                     <p style={{ fontSize: '0.8125rem', color: 'var(--color-gray-600)', lineHeight: 1.55 }}>{t('settings.devicesSub')}</p>
+                    {farm.isHardwareVerified && <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: '0.8125rem', color: 'var(--color-green-700)', margin: '0.375rem 0' }}><ShieldCheck size={14} /> {t('settings.hwVerified')}</div>}
+                    {farm.calibration && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{t('settings.calibration', { f: farm.calibration.irradianceFactor ?? 1, d: farm.calibration.irradianceDays ?? 0, n: farm.calibration.samples ?? 0 })}</div>}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-600)', marginTop: '0.375rem' }}>
+                        {t('settings.firmware')} <a href="https://github.com/SagarSwain05/agrovolt-ai/tree/main/hardware/esp32-node" target="_blank" rel="noreferrer" style={{ color: 'var(--color-green-700)' }}>hardware/esp32-node</a>
+                    </div>
                     {devices.map((d) => (
                         <div key={d._id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0', borderBottom: '1px solid var(--color-gray-100)' }}>
                             <Cpu size={16} color={d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 900000 ? 'var(--color-green-600)' : 'var(--color-gray-400)'} />
@@ -191,12 +206,16 @@ export default function SettingsPage() {
                                 {newKey.apiKey}
                                 <button onClick={() => navigator.clipboard?.writeText(newKey.apiKey)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }} aria-label="copy"><Copy size={14} /></button>
                             </div>
-                            <pre style={{ marginTop: '0.75rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#a7f3d0' }}>{`# HTTP POST every 5–15 min (ESP32 / LoRaWAN gateway)
-curl -X POST ${API_BASE}/iot/telemetry \\
+                            <pre style={{ marginTop: '0.75rem', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#a7f3d0' }}>{`# HTTP POST every 5–15 min (ESP32 / LoRaWAN gateway / Modbus bridge)
+curl -X POST ${API_BASE}/v1/telemetry \\
   -H "Content-Type: application/json" \\
   -H "X-Device-Key: ${newKey.apiKey}" \\
-  -d '{"soilMoisturePct":31.5,"soilTempC":27.1,"soilN":210,"soilP":18,"soilK":160,
-       "panelTempC":47.2,"ambientTempC":32.4,"humidityPct":61,"irradianceWm2":640,"powerW":2150}'`}</pre>
+  -d '{"farmId":"${farm._id}","energy_kwh":12.4,"meter_kwh_total":1525.9,
+       "power_w":2150,"soil_moisture_pct":31.5,"ambient_temp":32.4,
+       "humidity_pct":61,"panel_temp":47.2,"soil_n":210,"soil_p":18,"soil_k":160}'
+
+# MQTT (if enabled on the server): publish to agrovolt/<device>/telemetry
+# payload: {"key":"${newKey.apiKey}", ...same fields}`}</pre>
                             <div style={{ color: '#9ca3af', marginTop: '0.375rem' }}>{t('settings.keyFields')}</div>
                         </div>
                     )}

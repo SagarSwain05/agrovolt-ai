@@ -33,6 +33,7 @@ exports.updateFarm = async (req, res) => {
     if (!farm) return res.status(404).json({ success: false, message: "Farm not found" });
 
     const before = Object.fromEntries(LEDGER_FIELDS.map((f) => [f, String(farm[f] ?? "")]));
+    const tiltBefore = farm.panelTilt;
     for (const f of EDITABLE) if (req.body[f] !== undefined) farm[f] = req.body[f];
     const loc = req.body.location;
     if (loc) {
@@ -41,6 +42,13 @@ exports.updateFarm = async (req, res) => {
     }
     if (farm.solarInstalled && !farm.solarSince) farm.solarSince = new Date();
     await farm.save();
+    if (req.body.panelTilt !== undefined && Number(req.body.panelTilt) !== tiltBefore) {
+      const solarPosition = require("../mlModels/solarPosition");
+      require("../models/TiltLog").create({
+        farmId: farm._id, tiltDeg: farm.panelTilt, optimalDeg: solarPosition.getOptimalTilt(farm.location.latitude, farm.location.longitude),
+        source: req.body.tiltSource === "sun-chaser" ? "sun-chaser" : "settings",
+      }).catch(() => {});
+    }
 
     const locationChanged = loc && (loc.latitude !== undefined || loc.longitude !== undefined);
     const changed = locationChanged || LEDGER_FIELDS.some((f) => String(farm[f] ?? "") !== before[f]);

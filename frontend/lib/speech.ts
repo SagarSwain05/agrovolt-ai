@@ -5,9 +5,9 @@
 // Listening:  Browser SpeechRecognition (Chrome/Edge/Android; en-IN, hi-IN,
 //             or-IN). Elsewhere we record audio and the server transcribes it.
 // Speaking:   en/hi → server neural voices (Edge en-IN / hi-IN), browser voice
-//             as fallback. or → Meta MMS-TTS Odia model running in the browser
-//             (ONNX, ~38 MB, cached after first use); server Hindi voice with
-//             Odia→Devanagari transliteration while it loads or if it fails.
+//             as fallback. or → server voice (Bhashini / Gemini TTS, cached),
+//             then the on-device Meta MMS-TTS Odia model (ONNX, ~38 MB, cached,
+//             works offline).
 // ═══════════════════════════════════════════════════════════════════════════
 import { assistantAPI, type Lang } from './api';
 
@@ -291,6 +291,10 @@ function splitSentences(text: string): string[] {
         .filter(Boolean);
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+
 /**
  * Speak `text` in `lang`. Resolves when playback finishes (or is stopped).
  * Returns which engine was used.
@@ -301,11 +305,19 @@ export async function speak(text: string, lang: Lang): Promise<'neural' | 'odia-
     if (!text?.trim()) return 'none';
 
     if (lang === 'or') {
+        // 1) Server voice (Bhashini / Gemini — commercially licensable, best pronunciation)
+        if (typeof navigator === 'undefined' || navigator.onLine) {
+            try {
+                const res = await withTimeout(assistantAPI.tts(text, 'or'), 20000);
+                if (token !== speakToken) return 'odia-server';
+                await playBlob(res.data as Blob, token);
+                return 'odia-server';
+            } catch { /* fall through to the on-device model */ }
+        }
+        // 2) On-device Meta MMS model (works offline once cached)
         try {
-            if (!odiaEngineReady) throw new Error('not ready');
-            const normalized = normalizeOdiaForTts(text);
-            // Synthesize sentence n+1 while sentence n is playing
-            const parts = splitSentences(normalized);
+            await loadOdiaEngine();
+            const parts = splitSentences(normalizeOdiaForTts(text));
             let next = synthOdiaChunk(parts[0]);
             for (let i = 0; i < parts.length; i++) {
                 const pcm = await next;
@@ -315,14 +327,7 @@ export async function speak(text: string, lang: Lang): Promise<'neural' | 'odia-
             }
             return 'odia-local';
         } catch {
-            loadOdiaEngine().catch(() => { }); // warm it up for next time
-            try {
-                const res = await assistantAPI.tts(normalizeOdiaForTts(text), 'or');
-                await playBlob(res.data as Blob, token);
-                return 'odia-server';
-            } catch {
-                return 'none';
-            }
+            return 'none';
         }
     }
 

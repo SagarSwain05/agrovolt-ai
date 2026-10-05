@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import StatCard from '@/components/StatCard';
+import MrvPanel from '@/components/MrvPanel';
 import { useI18n } from '@/lib/i18n';
 import { carbonAPI, apiError } from '@/lib/api';
 import { useApi } from '@/hooks/useLive';
@@ -145,6 +146,8 @@ export default function CarbonPage() {
                         </div>
                     )}
                 </div>
+
+                <MrvPanel />
 
                 {/* Ledger */}
                 <div className="card">

@@ -27,9 +27,13 @@ services:
         sync: false
       - key: ROBOFLOW_API_URL
         sync: false
-      # Free key from https://aistudio.google.com/apikey — enables conversational
-      # Sahayak + server speech-to-text. Without it Sahayak uses the rule engine.
-      - key: GEMINI_API_KEY
+      # Gemini key pool (comma-separated) — conversational Sahayak, STT, Odia TTS, translation.
+      - key: GEMINI_API_KEYS
         sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      # Optional: TWILIO_*, WHATSAPP_*, BHASHINI_*, MQTT_* (see README)

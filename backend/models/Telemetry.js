@@ -24,7 +24,12 @@ const TelemetrySchema = new mongoose.Schema(
     soilPH: Number,
     powerW: Number,
     energyTodayKwh: Number,
-    panelTiltDeg: Number
+    panelTiltDeg: Number,
+    meterKwhTotal: Number, // cumulative import/generation register of an RS485 energy meter
+    voltageV: Number,
+    currentA: Number,
+    leafWetnessPct: Number,
+    rainMm: Number
   },
   { timestamps: false }
 );

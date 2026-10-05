@@ -70,6 +70,68 @@ const M = {
         or: 'ସବୁକିଛି ସ୍ୱାଭାବିକ ଅଛି। ବର୍ତ୍ତମାନ କୌଣସି ଜରୁରୀ କାର୍ଯ୍ୟ ଆବଶ୍ୟକ ନାହିଁ।',
     },
 
+    // ── Disease early warning ───────────────────────────────────────────
+    risk_title: {
+        en: '{level} risk: {disease}',
+        hi: '{level} जोखिम: {disease}',
+        or: '{level} ବିପଦ: {disease}',
+    },
+    risk_body: {
+        en: '{hours} hours of humid weather ({basis}) favour {disease} on {crops}. {action}',
+        hi: '{hours} घंटे की नम मौसम ({basis}) से {crops} में {disease} का खतरा है। {action}',
+        or: '{hours} ଘଣ୍ଟା ଆର୍ଦ୍ର ପାଣିପାଗ ({basis}) ଯୋଗୁଁ {crops} ରେ {disease} ବିପଦ। {action}',
+    },
+    risk_body_rain: {
+        en: '{mm} mm rain in 72 hours can waterlog {crops} and cause {disease}. {action}',
+        hi: '72 घंटे में {mm} मिमी बारिश से {crops} में जलभराव और {disease} हो सकता है। {action}',
+        or: '72 ଘଣ୍ଟାରେ {mm} ମିମି ବର୍ଷା {crops} ରେ ଜଳବନ୍ଦୀ ଓ {disease} କରିପାରେ। {action}',
+    },
+    level_high: { en: 'High', hi: 'उच्च', or: 'ଅଧିକ' },
+    level_medium: { en: 'Moderate', hi: 'मध्यम', or: 'ମଧ୍ୟମ' },
+    dz_late_blight: { en: 'late blight', hi: 'पछेता झुलसा (लेट ब्लाइट)', or: 'ପଛୁଆ ଝାଉଁଳା (ଲେଟ୍ ବ୍ଲାଇଟ୍)' },
+    dz_early_blight: { en: 'early blight', hi: 'अगेता झुलसा (अर्ली ब्लाइट)', or: 'ଆଗୁଆ ଝାଉଁଳା (ଅର୍ଲି ବ୍ଲାଇଟ୍)' },
+    dz_rice_blast: { en: 'rice blast', hi: 'धान का झोंका (ब्लास्ट)', or: 'ଧାନ ବ୍ଲାଷ୍ଟ ରୋଗ' },
+    dz_sheath_blight: { en: 'sheath blight', hi: 'शीथ ब्लाइट', or: 'ଖୋଳ ପୋଡ଼ା (ସିଥ୍ ବ୍ଲାଇଟ୍)' },
+    dz_fungal_leaf: { en: 'fungal leaf disease', hi: 'फफूंद पत्ती रोग', or: 'ଫଙ୍ଗସ୍ ପତ୍ର ରୋଗ' },
+    dz_rhizome_rot: { en: 'rhizome rot', hi: 'प्रकंद सड़न', or: 'ମୂଳ ପଚା ରୋଗ' },
+    act_late_blight: {
+        en: 'Spray copper oxychloride 3 g/L or Bordeaux 1% as protection now; remove infected leaves; avoid evening irrigation.',
+        hi: 'अभी बचाव के लिए कॉपर ऑक्सीक्लोराइड 3 ग्राम/लीटर या 1% बोर्डो मिश्रण छिड़कें; संक्रमित पत्तियां हटाएं; शाम को सिंचाई न करें।',
+        or: 'ଏବେ ସୁରକ୍ଷା ପାଇଁ କପର ଅକ୍ସିକ୍ଲୋରାଇଡ 3 ଗ୍ରାମ/ଲିଟର କିମ୍ବା 1% ବୋର୍ଡୋ ମିଶ୍ରଣ ସ୍ପ୍ରେ କରନ୍ତୁ; ସଂକ୍ରମିତ ପତ୍ର କାଢ଼ନ୍ତୁ; ସନ୍ଧ୍ୟାରେ ଜଳସେଚନ କରନ୍ତୁ ନାହିଁ।',
+    },
+    act_early_blight: {
+        en: 'Remove lower spotted leaves, spray neem oil 5 ml/L or mancozeb 2.5 g/L, keep foliage dry.',
+        hi: 'नीचे की धब्बेदार पत्तियां हटाएं, नीम तेल 5 मिली/लीटर या मैनकोज़ेब 2.5 ग्राम/लीटर छिड़कें, पत्तियां सूखी रखें।',
+        or: 'ତଳ ଦାଗିଆ ପତ୍ର କାଢ଼ନ୍ତୁ, ନିମ୍ବ ତେଲ 5 ମିଲି/ଲିଟର କିମ୍ବା ମାଙ୍କୋଜେବ 2.5 ଗ୍ରାମ/ଲିଟର ସ୍ପ୍ରେ କରନ୍ତୁ, ପତ୍ର ଶୁଖିଲା ରଖନ୍ତୁ।',
+    },
+    act_rice_blast: {
+        en: 'Avoid extra urea now, keep standing water, scout for diamond-shaped spots; tricyclazole 0.6 g/L if seen.',
+        hi: 'अभी अतिरिक्त यूरिया न दें, खेत में पानी रखें, हीरे जैसे धब्बे देखें; दिखें तो ट्राइसाइक्लाज़ोल 0.6 ग्राम/लीटर।',
+        or: 'ଏବେ ଅତିରିକ୍ତ ୟୁରିଆ ଦିଅନ୍ତୁ ନାହିଁ, କ୍ଷେତରେ ପାଣି ରଖନ୍ତୁ, ହୀରା ଆକାରର ଦାଗ ଦେଖନ୍ତୁ; ଦେଖାଗଲେ ଟ୍ରାଇସାଇକ୍ଲାଜୋଲ 0.6 ଗ୍ରାମ/ଲିଟର।',
+    },
+    act_sheath_blight: {
+        en: 'Thin dense patches, drain field for 2–3 days, apply Trichoderma or hexaconazole 2 ml/L on lesions.',
+        hi: 'घने हिस्से छांटें, खेत 2–3 दिन सुखाएं, धब्बों पर ट्राइकोडर्मा या हेक्साकोनाज़ोल 2 मिली/लीटर।',
+        or: 'ଘନ ଅଂଶ ପତଳା କରନ୍ତୁ, କ୍ଷେତ 2–3 ଦିନ ଶୁଖାନ୍ତୁ, ଦାଗରେ ଟ୍ରାଇକୋଡର୍ମା କିମ୍ବା ହେକ୍ସାକୋନାଜୋଲ 2 ମିଲି/ଲିଟର।',
+    },
+    act_fungal_leaf: {
+        en: 'Improve air flow, avoid wetting leaves, spray neem oil 5 ml/L as prevention.',
+        hi: 'हवा का बहाव बढ़ाएं, पत्तियां गीली न करें, बचाव के लिए नीम तेल 5 मिली/लीटर छिड़कें।',
+        or: 'ପବନ ଚଳାଚଳ ବଢ଼ାନ୍ତୁ, ପତ୍ର ଓଦା କରନ୍ତୁ ନାହିଁ, ସୁରକ୍ଷା ପାଇଁ ନିମ୍ବ ତେଲ 5 ମିଲି/ଲିଟର ସ୍ପ୍ରେ କରନ୍ତୁ।',
+    },
+    act_rhizome_rot: {
+        en: 'Open drainage channels now; drench Trichoderma-enriched compost; remove yellowing plants.',
+        hi: 'अभी जल निकासी खोलें; ट्राइकोडर्मा युक्त खाद डालें; पीले पौधे हटाएं।',
+        or: 'ଏବେ ଜଳ ନିଷ୍କାସନ ନାଳ ଖୋଲନ୍ତୁ; ଟ୍ରାଇକୋଡର୍ମା ଯୁକ୍ତ ଖତ ଦିଅନ୍ତୁ; ହଳଦିଆ ଗଛ କାଢ଼ନ୍ତୁ।',
+    },
+    outbreak_title: { en: 'Outbreak nearby: {disease}', hi: 'आस-पास प्रकोप: {disease}', or: 'ଆଖପାଖରେ ପ୍ରକୋପ: {disease}' },
+    outbreak_body: {
+        en: '{n} farms in your district reported {disease} on {crop} in the last 14 days. Scout your field today.',
+        hi: 'पिछले 14 दिनों में आपके ज़िले के {n} खेतों में {crop} पर {disease} मिला। आज अपने खेत की जांच करें।',
+        or: 'ଗତ 14 ଦିନରେ ଆପଣଙ୍କ ଜିଲ୍ଲାର {n} କ୍ଷେତରେ {crop} ରେ {disease} ମିଳିଛି। ଆଜି ଆପଣଙ୍କ କ୍ଷେତ ଯାଞ୍ଚ କରନ୍ତୁ।',
+    },
+    weather_title: { en: 'Weather alert', hi: 'मौसम चेतावनी', or: 'ପାଣିପାଗ ସତର୍କତା' },
+
     // ── Time words ──────────────────────────────────────────────────────
     today: { en: 'today', hi: 'आज', or: 'ଆଜି' },
     tomorrow: { en: 'tomorrow', hi: 'कल', or: 'କାଲି' },

@@ -13,7 +13,8 @@ export default function RegisterPage() {
     const { register, waking } = useAuth();
     const { t, lang, setLang } = useI18n();
     const router = useRouter();
-    const [f, setF] = useState({ name: '', email: '', phone: '', password: '', district: '', state: 'Odisha', farmSize: '2' });
+    const [f, setF] = useState({ name: '', email: '', phone: '', password: '', district: '', state: 'Odisha', farmSize: '2', organization: '' });
+    const [role, setRole] = useState<'farmer' | 'epc' | 'fpo'>('farmer');
     const [gps, setGps] = useState<{ latitude: number; longitude: number } | null>(null);
     const [gpsMsg, setGpsMsg] = useState('');
     const [error, setError] = useState('');
@@ -36,8 +37,8 @@ export default function RegisterPage() {
         setError('');
         setLoading(true);
         try {
-            await register({ ...f, farmSize: parseFloat(f.farmSize) || 2, language: lang, ...(gps || {}) });
-            router.push('/settings?welcome=1');
+            await register({ ...f, role, farmSize: parseFloat(f.farmSize) || 2, language: lang, ...(gps || {}) });
+            router.push(role === 'farmer' ? '/settings?welcome=1' : '/partner');
         } catch (err) {
             setError((err as Error).message || t('auth.registerFailed'));
         } finally {
@@ -49,6 +50,18 @@ export default function RegisterPage() {
         <AuthShell title={t('auth.createAccount')} subtitle={t('auth.createSub')} wide>
             {error && <div style={errBox}><AlertCircle size={16} /> {error}</div>}
             <form onSubmit={submit}>
+                <div role="radiogroup" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.375rem', marginBottom: '0.875rem' }}>
+                    {(['farmer', 'epc', 'fpo'] as const).map((r) => (
+                        <button type="button" key={r} role="radio" aria-checked={role === r} onClick={() => setRole(r)} style={{
+                            padding: '0.5rem', borderRadius: 'var(--radius-lg)', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
+                            border: role === r ? '2px solid var(--color-green-600)' : '1px solid var(--color-gray-200)',
+                            background: role === r ? 'var(--color-green-50)' : 'white', color: 'var(--color-gray-800)',
+                        }}>{t('auth.role.' + r)}</button>
+                    ))}
+                </div>
+                {role !== 'farmer' && (
+                    <div style={{ marginBottom: '0.75rem' }}><label className="label">{t('auth.organization')}</label><input className="input" value={f.organization} onChange={set('organization')} required /></div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><label className="label">{t('settings.name')}</label><input className="input" value={f.name} onChange={set('name')} required /></div>
                     <div><label className="label">{t('settings.phone')}</label><input className="input" type="tel" value={f.phone} onChange={set('phone')} placeholder="+91" /></div>

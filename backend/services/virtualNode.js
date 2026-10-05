@@ -8,6 +8,7 @@
 const weather = require('./weatherService');
 const physics = require('./agrivoltaicPhysics');
 const solarPosition = require('../mlModels/solarPosition');
+const calibration = require('./calibration');
 
 const round = (v, d = 1) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
 
@@ -20,11 +21,15 @@ async function read(farm) {
     const diffuse = hourIdx >= 0 ? om.hourly.diffuse_radiation[hourIdx] || 0 : (c.shortwave_radiation || 0) * 0.25;
     const soilTemp = hourIdx >= 0 ? om.hourly.soil_temperature_0cm[hourIdx] : null;
 
-    const G = c.shortwave_radiation || 0;
+    const irrFactor = farm.calibration?.irradianceFactor || 1;
+    const G = (c.shortwave_radiation || 0) * irrFactor;
     const shade = farm.shadeCoverage ?? 35;
-    // Panels cut evaporation, so soil under the array holds more water than open field
+    // Rescale the generic land-model value into this farm's soil type, then add the
+    // panel-shade effect (less evaporation under the array than in open field).
     const openSoil = c.soil_moisture_0_to_1cm != null ? c.soil_moisture_0_to_1cm * 100 : 25;
-    const soilMoisture = openSoil * (1 + 0.25 * (shade / 100));
+    const soilCal = calibration.calibrateSoil(openSoil, farm.soilType);
+    const sp = calibration.soilParams(farm.soilType);
+    const soilMoisture = Math.min(sp.fieldCapacity * 1.1, (soilCal.vwc ?? openSoil) * (1 + 0.25 * (shade / 100)));
     const t = physics.panelTemperature(c.temperature_2m, G, farm.cropUnderPanels, shade, soilMoisture);
 
     const hasSolar = farm.solarInstalled && farm.solarCapacityKW > 0;
@@ -39,8 +44,10 @@ async function read(farm) {
         ? physics.dailyEnergy({ capacityKW: farm.solarCapacityKW, peakSunHours: pshSoFar, tempMaxC: om.daily.temperature_2m_max[0], crop: farm.cropUnderPanels, shadeCoveragePct: shade, tiltFactor: tf }).energyKwh
         : 0;
 
-    return {
+    return calibration.applyLearned({
         source: 'virtual',
+        soilAvailableWaterPct: calibration.pawFromVwc(soilMoisture, farm.soilType),
+        calibration: { irradianceFactor: irrFactor, soilTexture: sp.texture, learnedFromDevice: farm.calibration?.samples || 0 },
         ts: new Date(),
         ambientTempC: round(c.temperature_2m),
         underCanopyTempC: round(c.temperature_2m - (G > 100 ? 1.5 + 3 * (shade / 100) : 0.5)),
@@ -58,7 +65,7 @@ async function read(farm) {
         panelTiltDeg: farm.panelTilt,
         bioCoolingDeltaC: hasSolar ? round(t.coolingDeltaC) : null,
         weatherTime: c.time,
-    };
+    }, farm);
 }
 
 module.exports = { read };

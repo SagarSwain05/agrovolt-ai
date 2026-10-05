@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import Sahayak from '@/components/Sahayak';
+import OfflineBanner from '@/components/OfflineBanner';
 import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             main { margin-left: 0 !important; padding-bottom: 96px !important; }
                         }
                     `}</style>
+                    <OfflineBanner />
                     {children}
                 </main>
                 <BottomNav />

@@ -7,5 +7,6 @@ router.get("/status", c.status);
 router.post("/chat", protect, c.chat);
 router.post("/tts", protect, c.speak);
 router.get("/briefing", protect, c.briefing);
+router.post("/translate", protect, c.translate);
 
 module.exports = router;

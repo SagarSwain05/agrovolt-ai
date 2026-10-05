@@ -1,0 +1,22 @@
+{
+  "name": "AgroVolt AI — Bio-Solar Intelligence",
+  "short_name": "AgroVolt",
+  "description": "Agrivoltaic farm assistant: solar, crops, market and carbon — in English, हिन्दी and ଓଡ଼ିଆ.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9fafb",
+  "theme_color": "#047857",
+  "lang": "en-IN",
+  "categories": ["agriculture", "productivity", "utilities"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Scan a leaf", "url": "/scan" },
+    { "name": "Mandi prices", "url": "/market" }
+  ]
+}

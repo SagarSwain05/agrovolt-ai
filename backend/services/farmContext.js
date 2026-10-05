@@ -122,6 +122,10 @@ async function buildContext(user) {
             bestMandi: mandis[0]?.mandi, bestNet: mandis[0]?.netProfit, source: fc.dataSource, asOf: fc.asOf,
         },
     };
+    // Microclimate disease risk (feeds actions, Sahayak and the dashboard)
+    const risk = await settle(require('./diseaseRisk').assess(farm, crops, sensors?.source === 'device' ? sensors : null));
+    ctx.diseaseRisk = risk ? { risks: risk.risks.map(({ id, level, hours, crops: c, basis, rainMm }) => ({ id, level, hours, crops: c, basis, rainMm })), source: risk.source } : null;
+    ctx.hardware = { verified: !!farm.isHardwareVerified, since: farm.hardwareVerifiedAt || null, calibration: farm.calibration || null };
     ctx.actions = buildActions(ctx);
     return ctx;
 }
@@ -158,6 +162,10 @@ function buildActions(ctx) {
     const sick = ctx.scans.find((s) => s.status === 'pending' && s.disease && !/healthy/i.test(s.disease) && ['medium', 'high', 'critical'].includes(s.severity));
     if (sick) a.push({ code: 'adv_disease', type: 'crop', priority: 2, params: { disease: sick.disease, crop: sick.crop, date: new Date(sick.date).toISOString().slice(0, 10) } });
 
+    for (const r of (ctx.diseaseRisk?.risks || []).slice(0, 2)) {
+        a.push({ code: 'risk', type: 'alert', priority: r.level === 'high' ? 0 : 2, params: { risk: r } });
+    }
+
     const m = ctx.market;
     if (m.currentPrice) {
         const code = m.signal === 'SELL' ? 'adv_sell' : m.signal === 'WAIT' ? 'adv_wait' : 'adv_hold';
@@ -169,7 +177,12 @@ function buildActions(ctx) {
 
 function renderActions(actions, lang) {
     if (!actions.length) return [{ code: 'adv_all_good', type: 'info', priority: 9, text: i18n.t(lang, 'adv_all_good') }];
+    const { riskMessage } = require('./scheduler');
     return actions.map((x) => {
+        if (x.code === 'risk') {
+            const msg = riskMessage(x.params.risk, lang);
+            return { ...x, text: `${msg.title}. ${msg.body}` };
+        }
         const p = { ...x.params };
         if (p.whenIdx != null) p.when = i18n.when(lang, p.whenIdx);
         if (p.crop) p.crop = i18n.w(lang, p.crop);

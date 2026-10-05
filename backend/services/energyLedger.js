@@ -32,6 +32,7 @@ async function ensureLedger(farm, { force = false } = {}) {
     lastRun.set(id, Date.now());
 
     const { latitude: lat, longitude: lon } = farm.location;
+    const irrFactor = await require('./calibration').refreshIrradiance(farm);
     const om = await weather.getOpenMeteo(lat, lon, MAX_BACKFILL_DAYS);
     const todayStr = om.current.time.slice(0, 10);
     const nowHour = Number(om.current.time.slice(11, 13));
@@ -56,6 +57,7 @@ async function ensureLedger(farm, { force = false } = {}) {
                 ? s + (om.hourly.shortwave_radiation[h] || 0) / 1000 : s), 0);
         }
         if (!Number.isFinite(psh)) return;
+        psh *= irrFactor; // NASA POWER-calibrated insolation
         const r = physics.dailyEnergy({
             capacityKW: farm.solarCapacityKW,
             peakSunHours: psh,

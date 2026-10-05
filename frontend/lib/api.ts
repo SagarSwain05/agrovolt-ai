@@ -154,3 +154,52 @@ export const reportAPI = {
 export const verifyAPI = {
     certificate: (id: string) => api.get(`/carbon/verify/${encodeURIComponent(id)}`),
 };
+
+export const notificationAPI = {
+    list: () => api.get('/notifications'),
+    markRead: (ids?: string[]) => api.post('/notifications/read', { ids }),
+    config: () => api.get('/notifications/config'),
+    subscribe: (sub: PushSubscriptionJSON) => api.post('/notifications/subscribe', sub),
+    prefs: (p: { push?: boolean; sms?: boolean; whatsapp?: boolean; minLevel?: string }) => api.put('/notifications/prefs', p),
+    test: () => api.post('/notifications/test'),
+    risk: (lang: Lang) => api.get(`/notifications/risk?lang=${lang}`),
+};
+
+export const partnerAPI = {
+    myPartner: () => api.get('/epc/partner'),
+    link: (code: string) => api.post('/epc/link', { code }),
+    unlink: () => api.delete('/epc/link'),
+    fleet: () => api.get('/epc/fleet'),
+    keys: () => api.get('/epc/keys'),
+    createKey: (name: string) => api.post('/epc/keys', { name }),
+    updateKey: (id: string, data: { webhookUrl?: string; isActive?: boolean }) => api.put(`/epc/keys/${id}`, data),
+    deleteKey: (id: string) => api.delete(`/epc/keys/${id}`),
+    testWebhook: (id: string) => api.post(`/epc/keys/${id}/test`),
+};
+
+export const mrvAPI = {
+    report: () => api.get('/carbon/mrv'),
+    poa: (district?: string) => api.get(`/carbon/poa${district ? `?district=${encodeURIComponent(district)}` : ''}`),
+};
+
+export const marketExtraAPI = {
+    report: (data: { crop: string; mandi: string; price: number; soldQty?: number }) => api.post('/market/report', data),
+    status: () => api.get('/market/status'),
+};
+
+export const translateAPI = {
+    items: <T extends Record<string, unknown>>(items: T, lang: Lang) => api.post('/assistant/translate', { items, lang }),
+};
+
+/** Download an authenticated file (CSV/PDF) through the API. */
+export async function downloadFile(path: string, filename: string) {
+    const res = await api.get(path, { responseType: 'blob', timeout: 90000 });
+    const url = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}

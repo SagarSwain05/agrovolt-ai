@@ -388,3 +388,96 @@ exports.getIntelligence = async (req, res) => {
     });
   }
 };
+
+// @desc    MRV audit export
+// @route   GET /api/carbon/mrv?from=&to=&format=json|csv|hourly-csv|pdf
+// @access  Private
+exports.getMrv = async (req, res) => {
+  try {
+    const mrv = require("../services/mrv");
+    const farm = await Farm.findOne({ userId: req.user._id });
+    if (!farm) return res.status(404).json({ success: false, message: "Farm not found" });
+    if (!farm.solarInstalled) return res.status(400).json({ success: false, message: "Set up solar in Settings first." });
+    await ledger.ensureLedger(farm).catch(() => {});
+    const { from, to } = req.query;
+    const fmt = String(req.query.format || "json");
+    if (fmt === "hourly-csv") {
+      const rows = await mrv.hourly(farm, { from, to });
+      res.set({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="agrovolt-hourly-${Date.now()}.csv"` });
+      return res.send(mrv.toCsv(rows));
+    }
+    const report = await mrv.build(farm, req.user, { from, to });
+    if (fmt === "csv") {
+      res.set({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${report.reportId}.csv"` });
+      const head = `# ${report.reportId}; farm ${report.project.farmCode}; grid EF ${report.baseline.gridEmissionFactorKgPerKwh} kg/kWh; sha256 ${report.datasetSha256}\n`;
+      return res.send(head + mrv.toCsv(report.daily));
+    }
+    if (fmt === "pdf") {
+      res.set({ "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${report.reportId}.pdf"` });
+      return mrv.toPdf(report, res);
+    }
+    res.json({ success: true, data: report });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Could not build MRV report" });
+  }
+};
+
+// @desc    Programme of Activities (PoA) bundle — aggregate smallholder farms
+//          into one programmatic carbon project (anonymised component list)
+// @route   GET /api/carbon/poa?state=&district=&format=json|csv
+// @access  Private
+exports.getPoa = async (req, res) => {
+  try {
+    const own = await Farm.findOne({ userId: req.user._id }).lean();
+    const state = req.query.state || own?.location?.state || "Odisha";
+    const district = req.query.district ?? "";
+    const q = { "location.state": state, solarInstalled: true };
+    if (district) q["location.district"] = district;
+    const farms = await Farm.find(q).select("_id location.district solarCapacityKW solarSince isHardwareVerified cropUnderPanels").lean();
+    const agg = await SolarData.aggregate([
+      { $match: { farmId: { $in: farms.map((f) => f._id) }, isPartial: { $ne: true } } },
+      { $group: { _id: { farm: "$farmId", src: "$source" }, kwh: { $sum: "$energyProduced" }, co2: { $sum: "$co2AvoidedKg" }, days: { $sum: 1 }, first: { $min: "$day" }, last: { $max: "$day" } } },
+    ]);
+    const by = {};
+    for (const a of agg) {
+      const k = String(a._id.farm);
+      by[k] ||= { kwh: 0, co2: 0, meteredKwh: 0, meteredCo2: 0, days: 0, first: a.first, last: a.last };
+      by[k].kwh += a.kwh; by[k].co2 += a.co2 || 0; by[k].days += a.days;
+      if (a._id.src === "device") { by[k].meteredKwh += a.kwh; by[k].meteredCo2 += a.co2 || 0; }
+      if (a.first < by[k].first) by[k].first = a.first;
+      if (a.last > by[k].last) by[k].last = a.last;
+    }
+    const components = farms.map((f) => {
+      const s = by[String(f._id)] || { kwh: 0, co2: 0, meteredKwh: 0, meteredCo2: 0, days: 0 };
+      return {
+        cpa: `AV-${String(f._id).slice(-6).toUpperCase()}`, district: f.location?.district || "", capacityKWp: f.solarCapacityKW,
+        commissioned: f.solarSince ? new Date(f.solarSince).toISOString().slice(0, 10) : "", hardwareVerified: !!f.isHardwareVerified,
+        days: s.days, energyKwh: Math.round(s.kwh * 10) / 10, co2Kg: Math.round(s.co2), verifiableCo2Kg: Math.round(s.meteredCo2),
+        vintageFrom: s.first || "", vintageTo: s.last || "",
+      };
+    }).filter((c) => c.days > 0);
+    const totals = components.reduce((t, c) => ({ cpas: t.cpas + 1, capacityKWp: t.capacityKWp + (c.capacityKWp || 0), energyKwh: t.energyKwh + c.energyKwh, co2Kg: t.co2Kg + c.co2Kg, verifiableCo2Kg: t.verifiableCo2Kg + c.verifiableCo2Kg }), { cpas: 0, capacityKWp: 0, energyKwh: 0, co2Kg: 0, verifiableCo2Kg: 0 });
+    totals.credits = Math.round(totals.co2Kg) / 1000;
+    totals.verifiableCredits = Math.round(totals.verifiableCo2Kg) / 1000;
+    if (req.query.format === "csv") {
+      const mrv = require("../services/mrv");
+      res.set({ "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="agrovolt-poa-${state}${district ? "-" + district : ""}.csv"` });
+      return res.send(`# AgroVolt PoA bundle ${state}${district ? " / " + district : ""}; ${totals.cpas} CPAs; ${totals.credits} tCO2e (${totals.verifiableCredits} metered)\n` + mrv.toCsv(components));
+    }
+    res.json({
+      success: true,
+      data: {
+        scope: { state, district: district || null }, totals, components,
+        notes: [
+          "Each farm is a Component Project Activity (CPA) under one AgroVolt-coordinated programme.",
+          "Only metered (hardware-verified) days count as verifiable; modelled days are estimates for planning.",
+          "Registration requires a validation body (DOE) and a registry: India CCTS, Verra VCS or Gold Standard.",
+        ],
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

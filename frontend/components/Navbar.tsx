@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n';
 import { useFarm } from '@/lib/farm';
 import { weatherAPI } from '@/lib/api';
 import LanguageSwitcher from './LanguageSwitcher';
+import NotificationBell from './NotificationBell';
 import { User, Thermometer, Moon, Zap, Settings, LogOut, CloudSun } from 'lucide-react';
 
 interface NavbarProps {
@@ -106,6 +107,7 @@ export default function Navbar({ title, subtitle, temperature, isNight, weatherI
                     }}>{pill}</div>
 
                     <div className="hidden md:block"><LanguageSwitcher /></div>
+                    <NotificationBell />
 
                     {user && (
                         <div style={{ position: 'relative' }}>

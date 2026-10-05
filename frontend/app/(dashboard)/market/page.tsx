@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import StatCard from '@/components/StatCard';
+import PriceReportForm from '@/components/PriceReportForm';
 import { useI18n, cropKey } from '@/lib/i18n';
 import { marketAPI } from '@/lib/api';
 import { useApi } from '@/hooks/useLive';
@@ -12,8 +13,9 @@ import { TrendingUp, TrendingDown, Minus, MapPin, Truck, Timer, CalendarClock, L
 const CROPS = ['Tomato', 'Turmeric', 'Rice', 'Wheat', 'Millet', 'Groundnut', 'Soybean'];
 
 interface Prices {
-    crop: string; source: 'live' | 'snapshot'; sourceLabel: string; fetchedAt: string | null;
-    prices: { mandi: string; district: string; distance_km: number | null; price: number; transportCost: number | null; netProfit: number; trend: string; demand: string; lastUpdated: string }[];
+    crop: string; source: 'live' | 'snapshot' | 'crowd'; sourceLabel: string; fetchedAt: string | null;
+    feedStatus?: { lastSuccess: string | null; lastError: { at: string; message: string } | null };
+    prices: { mandi: string; district: string; distance_km: number | null; price: number; transportCost: number | null; netProfit: number; trend: string; demand: string; lastUpdated: string; source?: string; reports?: number; verified?: boolean }[];
     analysis: { avgPrice: number; bestPrice: number; bestMandi: string; bestNetProfit: number; transportCostRate: number };
 }
 interface Trends {
@@ -64,10 +66,11 @@ export default function MarketPage() {
 
                 {prices.data && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--color-gray-600)', flexWrap: 'wrap' }}>
-                        <span className={`badge ${prices.data.source === 'live' ? 'badge-green' : 'badge-solar'}`} style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
-                            <Database size={11} /> {prices.data.source === 'live' ? t('market.live') : t('market.snapshot')}
+                        <span className={`badge ${prices.data.source === 'live' ? 'badge-green' : prices.data.source === 'crowd' ? 'badge-blue' : 'badge-solar'}`} style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
+                            <Database size={11} /> {t('market.src.' + prices.data.source)}
                         </span>
-                        {prices.data.source === 'snapshot' && trends.data && <span>{t('market.snapshotNote', { d: date(trends.data.asOf, { day: 'numeric', month: 'short', year: 'numeric' }) })}</span>}
+                        {prices.data.source !== 'live' && trends.data && <span>{t('market.snapshotNote', { d: date(trends.data.asOf, { day: 'numeric', month: 'short', year: 'numeric' }) })}</span>}
+                        {prices.data.source !== 'live' && prices.data.feedStatus?.lastError && <span style={{ color: 'var(--color-gray-400)' }}>· {t('market.retrying')}</span>}
                     </div>
                 )}
 
@@ -106,6 +109,8 @@ export default function MarketPage() {
                     </div>
                 )}
 
+                <PriceReportForm crop={crop} mandis={(prices.data?.prices || []).map((p) => p.mandi)} onDone={() => prices.reload()} />
+
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                     {prices.data && (
                         <div className="card lg:col-span-3">
@@ -121,7 +126,7 @@ export default function MarketPage() {
                                     <tbody>
                                         {prices.data.prices.map((p, i) => (
                                             <tr key={p.mandi} style={{ borderTop: '1px solid var(--color-gray-100)', background: i === 0 ? 'var(--color-green-50)' : undefined }}>
-                                                <td style={td}><b>{p.mandi}</b><div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)' }}>{p.district}</div></td>
+                                                <td style={td}><b>{p.mandi}</b><div style={{ fontSize: '0.6875rem', color: 'var(--color-gray-500)' }}>{p.district}{p.source === 'crowd' && <> · <span style={{ color: 'var(--color-blue-600)' }}>{t('market.crowdRow', { n: p.reports })}{p.verified ? ' ✓FPO' : ''}</span></>}{p.source === 'snapshot' && <> · {t('market.snapRow')}</>}</div></td>
                                                 <td style={td}>{p.distance_km != null ? `${p.distance_km} km` : '—'}</td>
                                                 <td style={{ ...td, fontFamily: 'var(--font-mono)' }}>₹{num(p.price)}</td>
                                                 <td style={{ ...td, fontFamily: 'var(--font-mono)', color: 'var(--color-red-600)' }}>{p.transportCost != null ? `−₹${num(p.transportCost)}` : '—'}</td>

@@ -76,7 +76,7 @@ async function getOpenMeteo(lat, lon, pastDays = 0) {
             params: {
                 latitude: lat, longitude: lon, timezone: 'auto',
                 current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,shortwave_radiation,soil_moisture_0_to_1cm',
-                hourly: 'temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation,cloud_cover,soil_moisture_0_to_1cm,soil_temperature_0cm',
+                hourly: 'temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation,direct_radiation,diffuse_radiation,cloud_cover,soil_moisture_0_to_1cm,soil_temperature_0cm',
                 daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,shortwave_radiation_sum,sunrise,sunset,et0_fao_evapotranspiration,cloud_cover_mean,relative_humidity_2m_mean',
                 forecast_days: 7,
                 past_days: pastDays,
