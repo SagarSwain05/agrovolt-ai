@@ -134,7 +134,7 @@ export const assistantAPI = {
     status: () => api.get('/assistant/status'),
     chat: (data: { message?: string; audio?: { mimeType: string; data: string }; lang: Lang; history?: { role: string; text: string }[] }) =>
         api.post('/assistant/chat', data),
-    tts: (text: string, lang: Lang) => api.post('/assistant/tts', { text, lang }, { responseType: 'blob', timeout: 30000 }),
+    tts: (text: string, lang: Lang, provider?: 'edge' | 'gemini' | 'bhashini') => api.post('/assistant/tts', { text, lang, provider }, { responseType: 'blob', timeout: 30000 }),
     briefing: (lang: Lang) => api.get(`/assistant/briefing?lang=${lang}`),
 };
 

@@ -108,7 +108,22 @@ function chainFor(lang) {
 /**
  * @returns {Promise<{audio:Buffer,mimeType:string,voice:string,provider:string}>}
  */
-async function synthesize(text, lang = 'en', { prefer } = {}) {
+const inflight = new Map();
+
+async function synthesize(text, lang = 'en', opts = {}) {
+    const k = `${lang}|${opts.prefer || ''}|${clean(text)}`;
+    if (inflight.has(k)) return inflight.get(k);
+    const p = synthesizeOnce(text, lang, opts).finally(() => inflight.delete(k));
+    inflight.set(k, p);
+    return p;
+}
+
+/** Start synthesis in the background so the client's /tts request finds it cached or in flight. */
+function prewarm(text, lang) {
+    synthesize(text, lang).catch(() => { });
+}
+
+async function synthesizeOnce(text, lang = 'en', { prefer } = {}) {
     const l = EDGE_VOICES[lang] ? lang : 'en';
     const input = clean(text);
     if (!input) throw new Error('Empty text');
@@ -144,4 +159,4 @@ function remember(k, v) {
     if (mem.size > MEM_MAX) mem.delete(mem.keys().next().value);
 }
 
-module.exports = { synthesize, odiaToDevanagari, chainFor };
+module.exports = { synthesize, prewarm, odiaToDevanagari, chainFor };

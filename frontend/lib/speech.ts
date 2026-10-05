@@ -308,14 +308,24 @@ export async function speak(text: string, lang: Lang): Promise<'neural' | 'odia-
         // 1) Server voice (Bhashini / Gemini — commercially licensable, best pronunciation)
         if (typeof navigator === 'undefined' || navigator.onLine) {
             try {
-                const res = await withTimeout(assistantAPI.tts(text, 'or'), 20000);
+                const res = await withTimeout(assistantAPI.tts(text, 'or'), 25000);
                 if (token !== speakToken) return 'odia-server';
                 await playBlob(res.data as Blob, token);
                 return 'odia-server';
             } catch { /* fall through to the on-device model */ }
         }
-        // 2) On-device Meta MMS model (works offline once cached)
+        // 2) On-device Meta MMS model — only if the farmer already downloaded it
+        //    (never pull 38 MB over mobile data as an automatic fallback)
         try {
+            const cached = 'caches' in window && !!(await (await caches.open('av-models')).match('/models/mms-tts-ory/model.onnx'));
+            if (!cached && !odiaEngineReady) {
+                if (navigator.onLine) {
+                    const res = await assistantAPI.tts(text, 'or', 'edge'); // Hindi voice reading transliterated Odia
+                    await playBlob(res.data as Blob, token);
+                    return 'odia-server';
+                }
+                return 'none';
+            }
             await loadOdiaEngine();
             const parts = splitSentences(normalizeOdiaForTts(text));
             let next = synthOdiaChunk(parts[0]);

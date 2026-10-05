@@ -133,7 +133,7 @@ async function speak(text, { voice = 'Kore', style } = {}) {
             buf = pcmToWav(buf, rate);
         }
         return { audio: buf, mimeType: 'audio/wav' };
-    }, { timeout: 40000, budgetMs: 60000 });
+    }, { timeout: Number(process.env.GEMINI_TTS_TIMEOUT_MS) || 14000, budgetMs: Number(process.env.GEMINI_TTS_BUDGET_MS) || 18000 });
     return r;
 }
 

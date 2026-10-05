@@ -90,6 +90,7 @@ exports.chat = async (req, res) => {
     });
     if (ai?.json?.reply) {
       const outLang = scriptLang(ai.json.reply) || lang;
+      if (req.body?.speak !== false) tts.prewarm(ai.json.reply, outLang);
       return res.json({
         success: true,
         data: {
@@ -111,6 +112,7 @@ exports.chat = async (req, res) => {
       });
     }
     const r = fallback.answer(message, lang, ctx, renderActions);
+    if (req.body?.speak !== false) tts.prewarm(r.reply, lang);
     res.json({ success: true, data: { reply: r.reply, transcript: message, lang, source: "rules", intent: r.intent } });
   } catch (e) {
     console.error("[assistant]", e);
