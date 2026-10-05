@@ -283,6 +283,13 @@ function browserSpeak(text: string, lang: Lang, token: number): Promise<boolean>
     });
 }
 
+/** Must match the server's sentence split so prewarmed audio is reused. */
+function splitServerSentences(text: string): string[] {
+    const t = String(text).replace(/[*_#`>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200);
+    const parts = t.split(/(?<=[।.!?])\s+/).map((x) => x.trim()).filter(Boolean);
+    return parts.length ? parts : [t];
+}
+
 function splitSentences(text: string): string[] {
     return text
         .split(/(?<=[।.!?])\s+/)
@@ -305,14 +312,24 @@ export async function speak(text: string, lang: Lang): Promise<'neural' | 'odia-
     if (!text?.trim()) return 'none';
 
     if (lang === 'or') {
-        // 1) Server voice (Bhashini / Gemini — commercially licensable, best pronunciation)
+        // 1) Server voice (Bhashini / Gemini — commercially licensable, best pronunciation),
+        //    sentence by sentence so speech starts quickly; next sentence is prefetched while playing.
         if (typeof navigator === 'undefined' || navigator.onLine) {
+            const parts = splitServerSentences(text);
+            let played = 0;
             try {
-                const res = await withTimeout(assistantAPI.tts(text, 'or'), 25000);
-                if (token !== speakToken) return 'odia-server';
-                await playBlob(res.data as Blob, token);
+                let next = withTimeout(assistantAPI.tts(parts[0], 'or'), 25000);
+                for (let i = 0; i < parts.length; i++) {
+                    const res = await next;
+                    if (token !== speakToken) return 'odia-server';
+                    if (i + 1 < parts.length) next = withTimeout(assistantAPI.tts(parts[i + 1], 'or'), 25000);
+                    await playBlob(res.data as Blob, token);
+                    played++;
+                }
                 return 'odia-server';
-            } catch { /* fall through to the on-device model */ }
+            } catch {
+                if (played > 0) return 'odia-server'; // partial playback — don't restart from the top
+            }
         }
         // 2) On-device Meta MMS model — only if the farmer already downloaded it
         //    (never pull 38 MB over mobile data as an automatic fallback)

@@ -121,9 +121,17 @@ async function synthesize(text, lang = 'en', opts = {}) {
     return p;
 }
 
-/** Start synthesis in the background so the client's /tts request finds it cached or in flight. */
-function prewarm(text, lang) {
-    synthesize(text, lang).catch(() => { });
+/** Split a reply into speakable sentences (the client requests them one by one). */
+function sentences(text) {
+    return clean(text).split(/(?<=[।.!?])\s+/).map((x) => x.trim()).filter(Boolean);
+}
+
+/** Start synthesis in the background (sentence by sentence, first ones first) so the client's /tts requests hit cache or in-flight work. */
+async function prewarm(text, lang) {
+    const parts = sentences(text);
+    for (let i = 0; i < parts.length; i += 2) {
+        await Promise.all(parts.slice(i, i + 2).map((p) => synthesize(p, lang).catch(() => { })));
+    }
 }
 
 async function synthesizeOnce(text, lang = 'en', { prefer } = {}) {
@@ -162,4 +170,4 @@ function remember(k, v) {
     if (mem.size > MEM_MAX) mem.delete(mem.keys().next().value);
 }
 
-module.exports = { synthesize, prewarm, odiaToDevanagari, chainFor };
+module.exports = { synthesize, prewarm, sentences, odiaToDevanagari, chainFor };
